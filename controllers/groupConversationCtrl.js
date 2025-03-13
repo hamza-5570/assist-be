@@ -1,0 +1,239 @@
+import asyncHandler from "express-async-handler";
+import { GroupConversation } from "../model/GroupConversation.js";
+import { Message } from "../model/Message.js";
+
+// ✅ Create a new group conversation
+export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
+  const { group_title, description, group_members, group_image } = req.body;
+
+  if (!group_members.includes(req.user.id)) {
+    throw new Error("You must be part of the group to create it.");
+  }
+
+  const groupConversation = await GroupConversation.create({
+    group_title,
+    description,
+    group_members,
+    group_admin: req.user.id,
+    group_image,
+  });
+
+  res.status(201).json({
+    status: "success",
+    message: "Group conversation created successfully",
+    data: groupConversation,
+  });
+});
+
+// ✅ Get all group conversations for a user
+export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
+  const groups = await GroupConversation.find({
+    group_members: req.user.id,
+  })
+    .populate("group_members", "name email")
+    .populate("lastMessage");
+
+  res.json({
+    status: "success",
+    message: "Group conversations fetched successfully",
+    data: groups,
+  });
+});
+
+// ✅ Send a message in a group chat (Supports Attachments & Read Tracking)
+export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
+  const { groupId, text } = req.body;
+  let attachments = [];
+
+  if (req.files && req.files.length > 0) {
+    attachments = req.files.map((file) => file.path);
+  }
+
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  const message = await Message.create({
+    senderId: req.user.id,
+    receiverId: group.group_members.filter(
+      (id) => id.toString() !== req.user.id.toString()
+    ),
+    text,
+    attachments,
+    conversationId: group._id,
+    deliveredAt: new Date(),
+  });
+
+  // Update unread message count
+  group.unread_messages = group.group_members
+    .filter((user) => user.toString() !== req.user.id.toString())
+    .map((user) => ({
+      user,
+      count:
+        (group.unread_messages.find(
+          (u) => u.user.toString() === user.toString()
+        )?.count || 0) + 1,
+    }));
+
+  group.messages.push(message._id);
+  group.lastMessage = message._id;
+  await group.save();
+
+  res.status(201).json({
+    status: "success",
+    message: "Message sent successfully",
+    data: message,
+  });
+});
+
+// ✅ Mark group messages as read & update unread count
+export const markGroupMessagesAsReadCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  await Message.updateMany(
+    { conversationId: groupId, isRead: false, receiverId: req.user.id },
+    {
+      $set: { isRead: true, readAt: new Date() },
+      $addToSet: { readBy: req.user.id },
+    }
+  );
+
+  // Reset unread count for this user
+  group.unread_messages = group.unread_messages.filter(
+    (unread) => unread.user.toString() !== req.user.id.toString()
+  );
+
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "Messages marked as read",
+  });
+});
+
+// ✅ Add a user to a group
+export const addUserToGroupCtrl = asyncHandler(async (req, res) => {
+  const { groupId, userId } = req.body;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  if (!group.group_admin.equals(req.user.id)) {
+    throw new Error("Only the group admin can add users.");
+  }
+
+  if (!group.group_members.includes(userId)) {
+    group.group_members.push(userId);
+  }
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "User added to the group",
+  });
+});
+
+// ✅ Remove a user from a group
+export const removeUserFromGroupCtrl = asyncHandler(async (req, res) => {
+  const { groupId, userId } = req.body;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  if (!group.group_admin.equals(req.user.id)) {
+    throw new Error("Only the group admin can remove users.");
+  }
+
+  group.group_members = group.group_members.filter(
+    (id) => id.toString() !== userId.toString()
+  );
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "User removed from the group",
+  });
+});
+
+// ✅ Mute a group conversation
+export const muteGroupConversationCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  if (!group.muted_members.includes(req.user.id)) {
+    group.muted_members.push(req.user.id);
+  }
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "Group conversation muted",
+  });
+});
+
+// ✅ Unmute a group conversation
+export const unmuteGroupConversationCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  group.muted_members = group.muted_members.filter(
+    (id) => id.toString() !== req.user.id.toString()
+  );
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "Group conversation unmuted",
+  });
+});
+
+// ✅ Archive a group conversation
+export const archiveGroupConversationCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  group.status = "archived";
+  await group.save();
+
+  res.json({
+    status: "success",
+    message: "Group conversation archived successfully",
+  });
+});
+
+// ✅ Delete a group conversation (Only Admins)
+export const deleteGroupConversationCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const group = await GroupConversation.findById(groupId);
+  if (!group) throw new Error("Group not found");
+
+  if (!group.group_admin.equals(req.user.id)) {
+    throw new Error("Only the group admin can delete this group.");
+  }
+
+  await GroupConversation.findByIdAndDelete(groupId);
+
+  res.json({
+    status: "success",
+    message: "Group conversation deleted successfully",
+  });
+});
+
+// ✅ Handle Typing Indicator in Group Chat
+export const typingInGroupCtrl = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const { isTyping } = req.body;
+
+  const update = isTyping
+    ? { $addToSet: { typingUsers: req.user.id } }
+    : { $pull: { typingUsers: req.user.id } };
+
+  await GroupConversation.findByIdAndUpdate(groupId, update);
+
+  res.json({
+    status: "success",
+    message: isTyping ? "User is typing..." : "User stopped typing",
+  });
+});
