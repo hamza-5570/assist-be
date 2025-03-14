@@ -16,7 +16,7 @@ export const verifyToken = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    req.user = user; // Attach full user object for easier access
+    req.user = user;
     next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {
@@ -28,7 +28,6 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
-// Middleware for role-based authentication
 export const checkRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {

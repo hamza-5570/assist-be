@@ -166,7 +166,7 @@ export const sendOtp = asyncHandler(async (req, res) => {
     `Your OTP is: <b>${otp}</b><br>Do not share this with anyone.`
   );
 
-  res.status(201).json({ message: "OTP sent successfully" });
+  res.status(201).json({ message: "OTP sent successfully", user: user });
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
