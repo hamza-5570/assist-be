@@ -23,6 +23,7 @@ import GroupConversation from "./model/GroupConversation.js";
 import Notification from "./model/Notification.js";
 import Call from "./model/Call.js";
 import User from "./model/User.js";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -84,8 +85,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(morgan("tiny"));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.get("/", (req, res) => {
-  res.sendFile(path.join("public", "index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.use("/api/users/", userRoutes);
