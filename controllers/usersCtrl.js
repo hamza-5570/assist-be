@@ -141,7 +141,7 @@ export const logoutUserCtrl = asyncHandler(async (req, res) => {
 });
 
 export const sendOtp = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.body.user);
+  const user = await User.findById(req.body.userId);
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
@@ -153,7 +153,7 @@ export const sendOtp = asyncHandler(async (req, res) => {
   const hashedOtp = await bcrypt.hash(otp, 10);
 
   const newOtp = new Otp({
-    user: req.body.user,
+    user: req.body.userId,
     otp: hashedOtp,
     expiresAt: Date.now() + 120000,
   });
