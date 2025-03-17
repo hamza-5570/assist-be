@@ -7,6 +7,7 @@ import {
   sendOtp,
   forgotPassword,
   resetPassword,
+  getUsersForChatCtrl,
 } from "../controllers/usersCtrl.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 
@@ -19,5 +20,6 @@ userRoutes.post("/send-otp", sendOtp);
 userRoutes.post("/forgot-password", forgotPassword);
 userRoutes.post("/reset-password", resetPassword);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
+userRoutes.get("/users", verifyToken, getUsersForChatCtrl);
 
 export default userRoutes;

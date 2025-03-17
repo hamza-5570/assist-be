@@ -204,3 +204,15 @@ export const resetPassword = asyncHandler(async (req, res) => {
   await user.save();
   res.json({ message: "Password updated successfully" });
 });
+
+export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
+  try {
+    const users = await User.find({ _id: { $ne: req.userAuthId } }).select(
+      "name email isOnline"
+    );
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
