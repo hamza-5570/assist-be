@@ -10,7 +10,7 @@ import {
   archiveConversationCtrl,
   deleteConversationCtrl,
   typingIndicatorCtrl,
-} from "../controllers/conversationsCtrl.js";
+} from "../controllers/conversationCtrl.js";
 
 const conversationsRouter = express.Router();
 

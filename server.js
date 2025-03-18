@@ -24,6 +24,9 @@ import Notification from "./model/Notification.js";
 import Call from "./model/Call.js";
 import User from "./model/User.js";
 import { fileURLToPath } from "url";
+import conversationsRouter from "./routes/conversationRouter.js";
+import messageRouter from "./routes/messageRouter.js";
+import notificationRouter from "./routes/notificationRouter.js";
 
 dotenv.config();
 
@@ -100,6 +103,9 @@ app.use("/api/colors/", colorRouter);
 app.use("/api/reviews/", reviewRouter);
 app.use("/api/orders/", orderRouter);
 app.use("/api/size/", sizeRouter);
+app.use("/api/conversations/", conversationsRouter);
+app.use("/api/messages/", messageRouter);
+app.use("/api/notifications/", notificationRouter);
 
 app.use(notFound);
 app.use(globalErrhandler);
@@ -142,49 +148,52 @@ io.on("connection", (socket) => {
     }
     io.emit("online-users", Array.from(onlineUsers.keys()));
   });
+  socket.on("send message", (data) => {
+    console.log(data);
+    io.emit("receive message", data);
+  });
+  // socket.on(
+  //   "send-message",
+  //   async ({
+  //     senderId,
+  //     receiverId,
+  //     text,
+  //     attachments,
+  //     conversationId,
+  //     groupId,
+  //   }) => {
+  //     let newMessage;
 
-  socket.on(
-    "send-message",
-    async ({
-      senderId,
-      receiverId,
-      text,
-      attachments,
-      conversationId,
-      groupId,
-    }) => {
-      let newMessage;
+  //     if (conversationId) {
+  //       newMessage = await Message.create({
+  //         senderId,
+  //         receiverId,
+  //         text,
+  //         attachments,
+  //         conversationId,
+  //       });
+  //       await Conversation.findByIdAndUpdate(conversationId, {
+  //         lastMessage: newMessage._id,
+  //         $push: { messages: newMessage._id },
+  //       });
+  //     } else if (groupId) {
+  //       const group = await GroupConversation.findById(groupId);
+  //       newMessage = await Message.create({
+  //         senderId,
+  //         receiverId: group.group_members,
+  //         text,
+  //         attachments,
+  //         conversationId: groupId,
+  //       });
+  //       await GroupConversation.findByIdAndUpdate(groupId, {
+  //         lastMessage: newMessage._id,
+  //         $push: { messages: newMessage._id },
+  //       });
+  //     }
 
-      if (conversationId) {
-        newMessage = await Message.create({
-          senderId,
-          receiverId,
-          text,
-          attachments,
-          conversationId,
-        });
-        await Conversation.findByIdAndUpdate(conversationId, {
-          lastMessage: newMessage._id,
-          $push: { messages: newMessage._id },
-        });
-      } else if (groupId) {
-        const group = await GroupConversation.findById(groupId);
-        newMessage = await Message.create({
-          senderId,
-          receiverId: group.group_members,
-          text,
-          attachments,
-          conversationId: groupId,
-        });
-        await GroupConversation.findByIdAndUpdate(groupId, {
-          lastMessage: newMessage._id,
-          $push: { messages: newMessage._id },
-        });
-      }
-
-      io.to(onlineUsers.get(receiverId)).emit("receive-message", newMessage);
-    }
-  );
+  //     io.to(onlineUsers.get(receiverId)).emit("receive-message", newMessage);
+  //   }
+  // );
 
   // 🔵 **Typing Indicator**
   socket.on("typing", ({ conversationId, groupId, userId, isTyping }) => {
@@ -263,6 +272,10 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () =>
-  console.log(`Server is up and running on port ${PORT}`)
-);
+// server.listen(PORT, () =>
+//   console.log(`Server is up and running on port ${PORT}`)
+// );
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
+});

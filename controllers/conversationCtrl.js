@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
-import { Conversation } from "../model/Conversation.js";
-import { Message } from "../model/Message.js";
+import Conversation from "../model/Conversation.js";
+import Message from "../model/Message.js";
 
 export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   const { recipientId } = req.body;

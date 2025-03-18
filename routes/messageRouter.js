@@ -7,7 +7,7 @@ import {
   deleteMessageCtrl,
   markMessageAsReadCtrl,
   typingIndicatorCtrl,
-} from "../controllers/messagesCtrl.js";
+} from "../controllers/messageCtrl.js";
 
 const messagesRouter = express.Router();
 
@@ -15,7 +15,7 @@ const messagesRouter = express.Router();
 messagesRouter.post("/", verifyToken, upload.array("files"), sendMessageCtrl);
 
 // ✅ Get All Messages in a Conversation
-messagesRouter.get("/:conversationId", verifyToken, getMessagesCtrl);
+messagesRouter.get("/:conversationId", getMessagesCtrl);
 
 // ✅ Delete a Message
 messagesRouter.delete("/:messageId", verifyToken, deleteMessageCtrl);

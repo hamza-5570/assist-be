@@ -10,7 +10,7 @@ export const verifyToken = async (req, res, next) => {
         .json({ message: "Access denied. No token provided." });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_KEY);
     req.user = decoded;
 
     const user = await User.findById(req.user.id);
