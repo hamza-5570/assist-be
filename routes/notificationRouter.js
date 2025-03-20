@@ -10,7 +10,7 @@ import {
   notifyNewMessageCtrl,
   notifyNewCallCtrl,
   notifyOrderUpdateCtrl,
-} from "../controllers/notificationsCtrl.js";
+} from "../controllers/notificationCtrl.js";
 
 const notificationsRouter = express.Router();
 

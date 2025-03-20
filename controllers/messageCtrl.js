@@ -14,7 +14,7 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
   // Create message
   const message = await Message.create({
-    senderId: req.userAuthId,
+    senderId: req.user.id,
     receiverId: receiverId ? [receiverId] : [],
     text,
     attachments,
@@ -35,13 +35,13 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
   }
 
   // Send notification
-  await Notification.create({
-    messageId: message._id,
-    notifiedTo: receiverId ? [receiverId] : [],
-    notifiedBy: req.userAuthId,
-    notificationType: "message",
-    content: `New message from ${req.userAuthId}`,
-  });
+  // await Notification.create({
+  //   messageId: message._id,
+  //   notifiedTo: receiverId ? [receiverId] : [],
+  //   notifiedBy: req.userAuthId,
+  //   notificationType: "message",
+  //   content: `New message from ${req.userAuthId}`,
+  // });
 
   res.status(201).json({
     status: "success",

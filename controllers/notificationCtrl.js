@@ -1,8 +1,9 @@
 import asyncHandler from "express-async-handler";
-import { Notification } from "../models/Notification.js";
-import { Message } from "../model/Message.js";
-import { Order } from "../model/Order.js";
-import { Call } from "../model/Call.js";
+import Notification from "../model/Notification.js";
+import Message from "../model/Message.js";
+import Call from "../model/Call.js";
+import Order from "../model/Order.js";
+
 
 // ✅ Create a Notification
 export const createNotificationCtrl = asyncHandler(async (req, res) => {
