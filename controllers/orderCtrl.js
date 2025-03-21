@@ -1,132 +1,178 @@
 import asyncHandler from "express-async-handler";
-import dotenv from "dotenv";
-dotenv.config();
-import Stripe from "stripe";
 import Order from "../model/Order.js";
-import Product from "../model/Product.js";
 import User from "../model/User.js";
+import Stripe from "stripe";
+import dotenv from "dotenv";
 
+dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
-export const createOrderCtrl = asyncHandler(async (req, res) => {
-  const { orderItems, shippingAddress, totalPrice, paymentMethod } = req.body;
-  const user = await User.findById(req.user.id);
+export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
+  const { productName, productImages, customerId, totalPrice } = req.body;
 
-  if (!user?.hasShippingAddress)
-    throw new Error("Please provide shipping address");
-  if (orderItems?.length <= 0) throw new Error("No Order Items");
-
-  const products = await Product.find({
-    _id: { $in: orderItems.map((item) => item.product) },
-  });
-
-  orderItems.forEach(async (orderItem) => {
-    const product = products.find(
-      (p) => p._id.toString() === orderItem.product.toString()
-    );
-    if (product) {
-      product.totalSold += orderItem.qty;
-      await product.save();
-    }
-  });
+  const user = await User.findById(customerId);
+  if (!user) {
+    throw new Error("Customer not found");
+  }
 
   const order = await Order.create({
-    user: user._id,
-    orderItems,
-    shippingAddress,
+    productName,
+    productImages,
+    customerReference: customerId,
     totalPrice,
-    paymentMethod,
   });
 
-  user.orders.push(order._id);
-  await user.save();
+  res.json({
+    status: "success",
+    message: "Order offer created successfully",
+    order,
+  });
+});
 
-  const convertedOrders = orderItems.map((item) => ({
-    price_data: {
-      currency: "usd",
-      product_data: { name: item.name, description: item.description },
-      unit_amount: item.price * 100,
+export const updateOrderDetailsCtrl = asyncHandler(async (req, res) => {
+  const { orderId, productName, productImages, totalPrice } = req.body;
+
+  const order = await Order.findOne({ orderId });
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  order.productName = productName || order.productName;
+  order.productImages = productImages || order.productImages;
+  order.totalPrice = totalPrice || order.totalPrice;
+
+  await order.save();
+
+  res.json({
+    status: "success",
+    message: "Order details updated successfully",
+    order,
+  });
+});
+
+export const updateOrderStatusCtrl = asyncHandler(async (req, res) => {
+  const { orderId, status } = req.body;
+
+  const order = await Order.findOneAndUpdate(
+    { orderId },
+    { status },
+    { new: true }
+  );
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  res.json({
+    status: "success",
+    message: `Order status updated to ${status}`,
+    order,
+  });
+});
+
+export const acceptOrderAndCheckoutCtrl = asyncHandler(async (req, res) => {
+  const { orderId } = req.body;
+
+  const order = await Order.findOne({ orderId }).populate("customerReference");
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  console.log(order.status);
+  if (order.status === "Completed" || order.status === "Cancelled") {
+    throw new Error(
+      "Order cannot be accepted because its status is 'Completed' or 'Cancelled'"
+    );
+  }
+
+  const lineItems = [
+    {
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: order.productName,
+          images: order.productImages,
+        },
+        unit_amount: order.totalPrice * 100,
+      },
+      quantity: 1,
     },
-    quantity: item.qty,
-  }));
+  ];
 
   const session = await stripe.checkout.sessions.create({
-    line_items: convertedOrders,
-    metadata: { orderId: order._id.toString() },
+    line_items: lineItems,
     mode: "payment",
-    success_url: `${process.env.FRONTEND_URL}/success`,
-    cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+    success_url: `${process.env.FRONTEND}/success?orderId=${orderId}`,
+    cancel_url: `${process.env.FRONTEND}/cancel`,
+    metadata: { orderId: orderId },
   });
 
   res.json({ url: session.url });
 });
 
-export const getAllordersCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role))
+export const getAllOrdersCtrl = asyncHandler(async (req, res) => {
+  if (!["admin", "super_admin"].includes(req.user.role)) {
     throw new Error("Unauthorized access");
-  const orders = await Order.find().populate("user", "name email");
-  res.json({ success: true, message: "All orders", orders });
+  }
+
+  const orders = await Order.find().populate("customerReference", "name email");
+
+  res.json({
+    status: "success",
+    message: "All orders fetched successfully",
+    orders,
+  });
 });
 
 export const getSingleOrderCtrl = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id).populate(
-    "user",
+    "customerReference",
     "name email"
   );
   if (!order) throw new Error("Order not found");
-  res.json({ success: true, message: "Single order", order });
-});
 
-export const updateOrderCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role))
-    throw new Error("Unauthorized access");
-  const order = await Order.findByIdAndUpdate(
-    req.params.id,
-    { status: req.body.status },
-    { new: true }
-  );
-  if (!order) throw new Error("Order not found");
-  res.json({ success: true, message: "Order updated", order });
+  res.json({
+    status: "success",
+    message: "Single order fetched successfully",
+    order,
+  });
 });
 
 export const deleteOrderCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role))
-    throw new Error("Unauthorized access");
-  const order = await Order.findByIdAndDelete(req.params.id);
-  if (!order) throw new Error("Order not found");
-  res.json({ status: "success", message: "Order deleted successfully" });
+  const { orderId } = req.body;
+
+  const order = await Order.findOne({ orderId });
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  if (order.status === "Completed" || order.status === "Cancelled") {
+    throw new Error("Completed or cancelled orders cannot be deleted");
+  }
+
+  await Order.deleteOne({ orderId });
+
+  res.json({
+    status: "success",
+    message: "Order deleted successfully",
+  });
 });
 
-export const getOrderStatsCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role))
-    throw new Error("Unauthorized access");
-  const orders = await Order.aggregate([
-    {
-      $group: {
-        _id: null,
-        minimumSale: { $min: "$totalPrice" },
-        totalSales: { $sum: "$totalPrice" },
-        maxSale: { $max: "$totalPrice" },
-        avgSale: { $avg: "$totalPrice" },
-      },
-    },
-  ]);
+export const getOrdersByCustomerCtrl = asyncHandler(async (req, res) => {
+  const { customerId } = req.params;
 
-  const today = new Date();
-  const saleToday = await Order.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: new Date(
-            today.getFullYear(),
-            today.getMonth(),
-            today.getDate()
-          ),
-        },
-      },
-    },
-    { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } },
-  ]);
+  const orders = await Order.find({ customerReference: customerId }).populate(
+    "customerReference",
+    "name email"
+  );
 
-  res.json({ success: true, message: "Order statistics", orders, saleToday });
+  if (!orders || orders.length === 0) {
+    throw new Error("No orders found for this customer");
+  }
+
+  res.json({
+    status: "success",
+    message: "Orders retrieved successfully",
+    orders,
+  });
 });

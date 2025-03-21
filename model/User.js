@@ -18,9 +18,25 @@ const UserSchema = new Schema(
     orders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
     isVerified: { type: Boolean, default: false },
     isOnline: { type: Boolean, default: false },
+    isBanned: { type: Boolean, default: false },
+    isSuspended: { type: Boolean, default: false },
+    suspensionExpiryDate: { type: Date, default: null },
+    country: { type: String, default: null },
+    city: { type: String, default: null },
+    phoneNumber: { type: String, default: null },
+    postalCode: { type: String, default: null },
   },
   { timestamps: true }
 );
+
+// Middleware to check suspension status
+UserSchema.pre("save", function (next) {
+  if (this.isSuspended && this.suspensionExpiryDate <= new Date()) {
+    this.isSuspended = false;
+  }
+  next();
+});
+
 const User = mongoose.model("User", UserSchema);
 
 export default User;
