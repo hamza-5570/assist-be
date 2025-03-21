@@ -7,19 +7,10 @@ import express from "express";
 import path from "path";
 import dbConnect from "./config/dbConnect.js";
 import { globalErrhandler, notFound } from "./middlewares/globalErrHandler.js";
-import brandsRouter from "./routes/brandsRouter.js";
-import categoriesRouter from "./routes/categoriesRouter.js";
-import colorRouter from "./routes/colorRouter.js";
-import orderRouter from "./routes/ordersRouter.js";
-import productsRouter from "./routes/productsRoute.js";
-import reviewRouter from "./routes/reviewRouter.js";
 import userRoutes from "./routes/usersRoute.js";
 import Order from "./model/Order.js";
-import sizeRouter from "./routes/sizeRouter.js";
 import { Server } from "socket.io";
 import Message from "./model/Message.js";
-import Conversation from "./model/Conversation.js";
-import GroupConversation from "./model/GroupConversation.js";
 import Notification from "./model/Notification.js";
 import Call from "./model/Call.js";
 import User from "./model/User.js";
@@ -27,6 +18,7 @@ import { fileURLToPath } from "url";
 import conversationsRouter from "./routes/conversationRouter.js";
 import messageRouter from "./routes/messageRouter.js";
 import notificationRouter from "./routes/notificationRouter.js";
+import ordersRouter from "./routes/ordersRouter.js";
 
 dotenv.config();
 
@@ -40,7 +32,7 @@ const stripe = new Stripe(process.env.STRIPE_KEY);
 const endpointSecret = process.env.ENDPOINT;
 
 app.post(
-  "/webhook",
+  "/api/webhook",
   express.raw({ type: "application/json" }),
   async (request, response) => {
     const sig = request.headers["stripe-signature"];
@@ -49,37 +41,37 @@ app.post(
 
     try {
       event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
-      console.log("event");
+      console.log("Received event:", event.type);
     } catch (err) {
-      console.log("err", err.message);
+      console.log("Error verifying webhook:", err.message);
       response.status(400).send(`Webhook Error: ${err.message}`);
       return;
     }
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const { orderId } = session.metadata;
       const paymentStatus = session.payment_status;
-      const paymentMethod = session.payment_method_types[0];
-      const totalAmount = session.amount_total;
-      const currency = session.currency;
 
-      const order = await Order.findByIdAndUpdate(
-        JSON.parse(orderId),
+      const order = await Order.findOneAndUpdate(
+        { orderId },
         {
-          totalPrice: totalAmount / 100,
-          currency,
-          paymentMethod,
-          paymentStatus,
+          paymentStatus: paymentStatus,
+          status: paymentStatus === "paid" ? "Completed" : "Cancelled",
         },
-        {
-          new: true,
-        }
+        { new: true }
       );
-      console.log(order);
+
+      if (order) {
+        console.log("Order updated:", order);
+      } else {
+        console.log("Order not found with orderId:", orderId);
+      }
     } else {
-      return;
+      console.log("Unhandled event type:", event.type);
     }
-    response.send();
+
+    response.status(200).send("Event received");
   }
 );
 
@@ -96,13 +88,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/users/", userRoutes);
-app.use("/api/products/", productsRouter);
-app.use("/api/categories/", categoriesRouter);
-app.use("/api/brands/", brandsRouter);
-app.use("/api/colors/", colorRouter);
-app.use("/api/reviews/", reviewRouter);
-app.use("/api/orders/", orderRouter);
-app.use("/api/size/", sizeRouter);
+app.use("/api/orders/", ordersRouter);
 app.use("/api/conversations/", conversationsRouter);
 app.use("/api/messages/", messageRouter);
 app.use("/api/notifications/", notificationRouter);
@@ -272,10 +258,10 @@ io.on("connection", (socket) => {
   });
 });
 
-// server.listen(PORT, () =>
-//   console.log(`Server is up and running on port ${PORT}`)
-// );
+server.listen(PORT, () =>
+  console.log(`Server is up and running on port ${PORT}`)
+);
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on http://0.0.0.0:${PORT}`);
-});
+// server.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server is running on http://0.0.0.0:${PORT}`);
+// });

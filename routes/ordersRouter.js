@@ -1,41 +1,65 @@
 import express from "express";
 import {
-  createOrderCtrl,
-  getAllordersCtrl,
+  createOrderOfferCtrl,
+  updateOrderDetailsCtrl,
+  updateOrderStatusCtrl,
+  acceptOrderAndCheckoutCtrl,
+  getAllOrdersCtrl,
   getSingleOrderCtrl,
-  updateOrderCtrl,
-  getOrderStatsCtrl,
   deleteOrderCtrl,
+  getOrdersByCustomerCtrl,
 } from "../controllers/orderCtrl.js";
-import { verifyToken, checkRole } from "../middlewares/verifyToken.js";
+import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 
-const orderRouter = express.Router();
+const ordersRouter = express.Router();
 
-orderRouter.post("/", verifyToken, createOrderCtrl);
-orderRouter.get(
-  "/",
+ordersRouter.post(
+  "/create-order",
   verifyToken,
   checkRole(["admin", "super_admin"]),
-  getAllordersCtrl
+  createOrderOfferCtrl
 );
-orderRouter.get(
-  "/sales/stats",
+
+ordersRouter.put(
+  "/update-order-details",
   verifyToken,
   checkRole(["admin", "super_admin"]),
-  getOrderStatsCtrl
+  updateOrderDetailsCtrl
 );
-orderRouter.put(
-  "/update/:id",
+
+ordersRouter.put(
+  "/update-order-status",
   verifyToken,
   checkRole(["admin", "super_admin"]),
-  updateOrderCtrl
+  updateOrderStatusCtrl
 );
-orderRouter.get("/:id", verifyToken, getSingleOrderCtrl);
-orderRouter.delete(
-  "/:id",
+
+ordersRouter.post(
+  "/accept-order-and-checkout",
+  verifyToken,
+  checkRole(["customer"]),
+  acceptOrderAndCheckoutCtrl
+);
+
+ordersRouter.get(
+  "/orders",
+  verifyToken,
+  checkRole(["admin", "super_admin"]),
+  getAllOrdersCtrl
+);
+
+ordersRouter.get("/order/:id", verifyToken, getSingleOrderCtrl);
+
+ordersRouter.post(
+  "/delete-order",
   verifyToken,
   checkRole(["admin", "super_admin"]),
   deleteOrderCtrl
 );
 
-export default orderRouter;
+ordersRouter.get(
+  "/get-orders-by-customer/:customerId",
+  getOrdersByCustomerCtrl
+);
+
+export default ordersRouter;

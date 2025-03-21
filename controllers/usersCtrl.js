@@ -50,9 +50,21 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
 
 export const loginUserCtrl = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+
   const user = await User.findOne({ email });
 
-  if (user && (await bcrypt.compare(password, user?.password))) {
+  if (user && (await bcrypt.compare(password, user.password))) {
+    if (user.isBanned) {
+      throw new Error("Your account is banned. Please contact support.");
+    }
+
+    if (user.isSuspended) {
+      const suspensionMessage = user.suspensionExpiryDate
+        ? `Your account is suspended. Suspension will expire on ${user.suspensionExpiryDate}.`
+        : "Your account is suspended. Please check your suspension details.";
+      throw new Error(suspensionMessage);
+    }
+
     if (!user.isVerified) {
       await sendOtp({ body: { user: user._id } }, res);
       return;
@@ -65,7 +77,7 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
       status: "success",
       message: "User logged in successfully",
       user,
-      token: generateToken(user?._id),
+      token: generateToken(user._id),
       verified: user.isVerified,
       _id: user._id,
     });
@@ -216,3 +228,75 @@ export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Error fetching users" });
   }
 });
+
+export const toggleBanUserCtrl = asyncHandler(async (req, res) => {
+  const { userId } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  user.isBanned = !user.isBanned;
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: `User is now ${user.isBanned ? "banned" : "unbanned"}`,
+    user,
+  });
+});
+
+export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
+  const { userId, isSuspended, suspensionExpiryDate } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  user.isSuspended = isSuspended;
+  user.suspensionExpiryDate = isSuspended
+    ? new Date(suspensionExpiryDate)
+    : null;
+
+  if (user.isSuspended && user.suspensionExpiryDate <= new Date()) {
+    user.isSuspended = false;
+  }
+
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: isSuspended
+      ? "User has been suspended"
+      : "Suspension has been removed",
+    user,
+  });
+});
+
+export const updateUserLocationAndContactCtrl = asyncHandler(
+  async (req, res) => {
+    const { userId, name, country, city, phoneNumber, postalCode } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Update name if provided
+    user.name = name || user.name;
+    user.country = country || user.country;
+    user.city = city || user.city;
+    user.phoneNumber = phoneNumber || user.phoneNumber;
+    user.postalCode = postalCode || user.postalCode;
+
+    await user.save();
+
+    res.json({
+      status: "success",
+      message: "User location, contact details, and name updated successfully",
+      user,
+    });
+  }
+);
