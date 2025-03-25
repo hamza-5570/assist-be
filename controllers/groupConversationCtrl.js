@@ -2,7 +2,6 @@ import asyncHandler from "express-async-handler";
 import { GroupConversation } from "../model/GroupConversation.js";
 import { Message } from "../model/Message.js";
 
-// ✅ Create a new group conversation
 export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { group_title, description, group_members, group_image } = req.body;
 
@@ -25,7 +24,6 @@ export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Get all group conversations for a user
 export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
   const groups = await GroupConversation.find({
     group_members: req.user.id,
@@ -40,7 +38,6 @@ export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Send a message in a group chat (Supports Attachments & Read Tracking)
 export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
   const { groupId, text } = req.body;
   let attachments = [];
@@ -85,7 +82,6 @@ export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Mark group messages as read & update unread count
 export const markGroupMessagesAsReadCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const group = await GroupConversation.findById(groupId);
@@ -112,7 +108,6 @@ export const markGroupMessagesAsReadCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Add a user to a group
 export const addUserToGroupCtrl = asyncHandler(async (req, res) => {
   const { groupId, userId } = req.body;
   const group = await GroupConversation.findById(groupId);
@@ -133,7 +128,6 @@ export const addUserToGroupCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Remove a user from a group
 export const removeUserFromGroupCtrl = asyncHandler(async (req, res) => {
   const { groupId, userId } = req.body;
   const group = await GroupConversation.findById(groupId);
@@ -154,7 +148,6 @@ export const removeUserFromGroupCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Mute a group conversation
 export const muteGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const group = await GroupConversation.findById(groupId);
@@ -171,7 +164,6 @@ export const muteGroupConversationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Unmute a group conversation
 export const unmuteGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const group = await GroupConversation.findById(groupId);
@@ -188,7 +180,6 @@ export const unmuteGroupConversationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Archive a group conversation
 export const archiveGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const group = await GroupConversation.findById(groupId);
@@ -203,7 +194,6 @@ export const archiveGroupConversationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Delete a group conversation (Only Admins)
 export const deleteGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const group = await GroupConversation.findById(groupId);
@@ -221,7 +211,6 @@ export const deleteGroupConversationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Handle Typing Indicator in Group Chat
 export const typingInGroupCtrl = asyncHandler(async (req, res) => {
   const { groupId } = req.params;
   const { isTyping } = req.body;

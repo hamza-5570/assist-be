@@ -4,8 +4,6 @@ import Message from "../model/Message.js";
 import Call from "../model/Call.js";
 import Order from "../model/Order.js";
 
-
-// ✅ Create a Notification
 export const createNotificationCtrl = asyncHandler(async (req, res) => {
   const { notifiedTo, notificationType, content, messageId, orderId } =
     req.body;
@@ -26,7 +24,6 @@ export const createNotificationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Get Notifications for Logged-in User
 export const getUserNotificationsCtrl = asyncHandler(async (req, res) => {
   const notifications = await Notification.find({ notifiedTo: req.user.id })
     .populate("notifiedBy", "name email")
@@ -39,7 +36,6 @@ export const getUserNotificationsCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Mark a Notification as Read
 export const markNotificationAsReadCtrl = asyncHandler(async (req, res) => {
   const { notificationId } = req.params;
 
@@ -56,7 +52,6 @@ export const markNotificationAsReadCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Mark All Notifications as Read for a User
 export const markAllNotificationsAsReadCtrl = asyncHandler(async (req, res) => {
   await Notification.updateMany(
     { notifiedTo: req.user.id, isRead: false },
@@ -72,7 +67,6 @@ export const markAllNotificationsAsReadCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Delete a Notification
 export const deleteNotificationCtrl = asyncHandler(async (req, res) => {
   const { notificationId } = req.params;
   await Notification.findByIdAndDelete(notificationId);
@@ -83,7 +77,6 @@ export const deleteNotificationCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Delete All Notifications for a User
 export const deleteAllNotificationsCtrl = asyncHandler(async (req, res) => {
   await Notification.deleteMany({ notifiedTo: req.user.id });
 
@@ -93,7 +86,6 @@ export const deleteAllNotificationsCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Generate Notification when a New Message is Sent
 export const notifyNewMessageCtrl = asyncHandler(async (req, res) => {
   const { messageId } = req.body;
   const message = await Message.findById(messageId).populate("conversationId");
@@ -122,7 +114,6 @@ export const notifyNewMessageCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Generate Notification for an Incoming Call
 export const notifyNewCallCtrl = asyncHandler(async (req, res) => {
   const { callId } = req.body;
   const call = await Call.findById(callId);
@@ -150,7 +141,6 @@ export const notifyNewCallCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ✅ Generate Notification for Order Updates
 export const notifyOrderUpdateCtrl = asyncHandler(async (req, res) => {
   const { orderId, status } = req.body;
   const order = await Order.findById(orderId).populate("user");
