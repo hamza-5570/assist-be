@@ -5,7 +5,7 @@ const UserSchema = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String },
     role: {
       type: String,
       enum: ["admin", "super_admin", "moderator", "customer"],
@@ -25,11 +25,11 @@ const UserSchema = new Schema(
     city: { type: String, default: null },
     phoneNumber: { type: String, default: null },
     postalCode: { type: String, default: null },
+    isTemporary: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
-// Middleware to check suspension status
 UserSchema.pre("save", function (next) {
   if (this.isSuspended && this.suspensionExpiryDate <= new Date()) {
     this.isSuspended = false;

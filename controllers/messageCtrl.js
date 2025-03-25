@@ -3,7 +3,6 @@ import Message from "../model/Message.js";
 import Conversation from "../model/Conversation.js";
 import GroupConversation from "../model/GroupConversation.js";
 
-// Send a message with optional attachments
 export const sendMessageCtrl = asyncHandler(async (req, res) => {
   const { receiverId, text, conversationId, groupId } = req.body;
   let attachments = req.files ? req.files.map((file) => file.path) : [];
@@ -12,7 +11,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     throw new Error("Receiver or Group ID is required.");
   }
 
-  // Create message
   const message = await Message.create({
     senderId: req.user.id,
     receiverId: receiverId ? [receiverId] : [],
@@ -21,7 +19,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     conversationId: conversationId || null,
   });
 
-  // Update conversation
   if (conversationId) {
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: message._id,
@@ -50,7 +47,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// Get all messages in a conversation
 export const getMessagesCtrl = asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
   const messages = await Message.find({ conversationId }).sort({
@@ -64,7 +60,6 @@ export const getMessagesCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// Delete a message
 export const deleteMessageCtrl = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   const message = await Message.findById(messageId);
@@ -87,7 +82,6 @@ export const deleteMessageCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-// Mark message as read (with read receipts for individuals & group chats)
 export const markMessageAsReadCtrl = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   const message = await Message.findById(messageId);
@@ -130,5 +124,21 @@ export const typingIndicatorCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: "success",
     message: `Typing status updated`,
+  });
+});
+
+export const getMessageByIdCtrl = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    throw new Error("Message not found");
+  }
+
+  res.json({
+    status: "success",
+    message: "Message fetched successfully",
+    data: message,
   });
 });

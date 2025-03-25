@@ -11,6 +11,7 @@ import {
   toggleBanUserCtrl,
   handleSuspensionCtrl,
   updateUserLocationAndContactCtrl,
+  createTempAccountCtrl,
 } from "../controllers/usersCtrl.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -36,6 +37,11 @@ userRoutes.post(
   "/update-location-contact",
   verifyToken,
   updateUserLocationAndContactCtrl
+);
+userRoutes.post(
+  "/create-temporary-account",
+  validateRequestBody(userValidation),
+  createTempAccountCtrl
 );
 
 export default userRoutes;

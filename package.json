@@ -1,18 +1,19 @@
 {
-  "name": "nodejs-ecommerce-api",
+  "name": "assist-backend",
   "version": "1.0.0",
-  "description": "NodeJS E-commerce API",
+  "description": "Assist Backend API",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "server": "nodemon server.js",
-    "start": "nodemon server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "API",
-    "NodeJS"
+    "NodeJS",
+    "Assist"
   ],
-  "author": "I-Novotek Academy",
+  "author": "None",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",

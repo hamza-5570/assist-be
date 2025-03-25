@@ -10,7 +10,43 @@ import PasswordResetToken from "../model/PasswordResetToken.js";
 export const registerUserCtrl = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
+  let user = await User.findOne({ email, isTemporary: true });
+
+  if (user) {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user.name = name;
+    user.password = hashedPassword;
+    user.isTemporary = false;
+    await user.save();
+
+    await Otp.deleteMany({ user: user._id });
+
+    const otp = generateOTP();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    await Otp.create({
+      user: user._id,
+      otp: hashedOtp,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    await sendMail(
+      user.email,
+      "Email Verification - OTP",
+      `Your One-Time Password (OTP) for account verification is: <b>${otp}</b>. It is valid for 10 minutes.`
+    );
+
+    return res.status(200).json({
+      status: "success",
+      message: "Account upgraded successfully. Please verify your email.",
+      data: user,
+    });
+  }
+
   const userExists = await User.findOne({ email });
+
   if (userExists) {
     throw new Error("User already exists");
   }
@@ -18,13 +54,11 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
-  const user = await User.create({
+  user = await User.create({
     name,
     email,
     password: hashedPassword,
   });
-
-  await Otp.deleteMany({ user: user._id });
 
   const otp = generateOTP();
   const hashedOtp = await bcrypt.hash(otp, 10);
@@ -284,7 +318,6 @@ export const updateUserLocationAndContactCtrl = asyncHandler(
       throw new Error("User not found");
     }
 
-    // Update name if provided
     user.name = name || user.name;
     user.country = country || user.country;
     user.city = city || user.city;
@@ -300,3 +333,29 @@ export const updateUserLocationAndContactCtrl = asyncHandler(
     });
   }
 );
+
+export const createTempAccountCtrl = asyncHandler(async (req, res) => {
+  const { name, email } = req.body;
+
+  const userExists = await User.findOne({ email });
+  if (userExists) {
+    return res
+      .status(400)
+      .json({ message: "User already exists with this email" });
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    isTemporary: true,
+  });
+
+  const token = generateToken(user._id);
+
+  res.status(201).json({
+    status: "success",
+    message: "User account created successfully",
+    token,
+    user,
+  });
+});

@@ -10,7 +10,8 @@ const passwordValidation = z
   })
   .refine((value) => /[!@#$%^&*(),.?":{}|<>]/.test(value), {
     message: "Password must contain at least one special character",
-  });
+  })
+  .optional();
 
 const userValidation = z.object({
   email: emailValidation,
