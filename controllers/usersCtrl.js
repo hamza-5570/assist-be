@@ -389,12 +389,13 @@ export const addNewUserCtrl = asyncHandler(async (req, res) => {
 
   await sendMail(
     email,
+    "Assist - Account Created",
     `Hello ${name},<br><br>Welcome! Here are your account details:<br><br><strong>Email:</strong> ${email}<br><strong>Password:</strong> ${randomPassword}<br><strong>Role:</strong> ${role}<br><br>Please keep this information safe.`
   );
 
   res.status(201).json({
     status: "success",
-    message: "User added successfully. Please verify the email.",
+    message: "User added successfully",
     data: newUser,
     password: randomPassword,
   });
