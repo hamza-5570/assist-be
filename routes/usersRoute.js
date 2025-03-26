@@ -12,6 +12,7 @@ import {
   handleSuspensionCtrl,
   updateUserLocationAndContactCtrl,
   createTempAccountCtrl,
+  logoutUserCtrl,
 } from "../controllers/usersCtrl.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -29,6 +30,7 @@ userRoutes.post("/verify-otp", verifyOtp);
 userRoutes.post("/send-otp", sendOtp);
 userRoutes.post("/forgot-password", forgotPassword);
 userRoutes.post("/reset-password", resetPassword);
+userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", getUsersForChatCtrl);
 userRoutes.post("/toggle-ban", verifyToken, toggleBanUserCtrl);
