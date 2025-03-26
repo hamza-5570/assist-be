@@ -6,6 +6,7 @@ import Otp from "../model/OTP.js";
 import sendMail from "../utils/Emails.js";
 import generateOTP from "../utils/GenerateOtp.js";
 import PasswordResetToken from "../model/PasswordResetToken.js";
+import { randomBytes } from "crypto";
 
 export const registerUserCtrl = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -357,5 +358,44 @@ export const createTempAccountCtrl = asyncHandler(async (req, res) => {
     message: "User account created successfully",
     token,
     user,
+  });
+});
+
+export const addNewUserCtrl = asyncHandler(async (req, res) => {
+  const { name, email, role } = req.body;
+
+  const validRoles = ["super_admin", "admin", "moderator", "customer"];
+  if (!validRoles.includes(role)) {
+    throw new Error("Invalid role assigned");
+  }
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new Error("User already exists");
+  }
+
+  const randomPassword = randomBytes(8).toString("hex");
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+  const newUser = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+    role,
+    isVerified: true,
+  });
+
+  await sendMail(
+    email,
+    `Hello ${name},<br><br>Welcome! Here are your account details:<br><br><strong>Email:</strong> ${email}<br><strong>Password:</strong> ${randomPassword}<br><strong>Role:</strong> ${role}<br><br>Please keep this information safe.`
+  );
+
+  res.status(201).json({
+    status: "success",
+    message: "User added successfully. Please verify the email.",
+    data: newUser,
+    password: randomPassword,
   });
 });
