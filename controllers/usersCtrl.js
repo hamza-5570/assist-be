@@ -400,3 +400,59 @@ export const addNewUserCtrl = asyncHandler(async (req, res) => {
     password: randomPassword,
   });
 });
+
+export const getUserByIdCtrl = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+
+  const user = await User.findById(userId).select("-password");
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json({
+    status: "success",
+    message: "User fetched successfully",
+    user,
+  });
+});
+
+export const deleteUserByIdCtrl = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  await user.deleteOne();
+
+  res.json({
+    status: "success",
+    message: "User deleted successfully",
+  });
+});
+
+export const updatePasswordByIdCtrl = asyncHandler(async (req, res) => {
+  const { userId, oldPassword, newPassword } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const isMatch = await bcrypt.compare(oldPassword, user.password);
+  if (!isMatch) {
+    return res.status(400).json({ message: "Incorrect old password" });
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  user.password = hashedPassword;
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: "Password updated successfully",
+  });
+});

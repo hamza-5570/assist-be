@@ -14,8 +14,11 @@ import {
   createTempAccountCtrl,
   logoutUserCtrl,
   addNewUserCtrl,
+  getUserByIdCtrl,
+  deleteUserByIdCtrl,
+  updatePasswordByIdCtrl,
 } from "../controllers/usersCtrl.js";
-import { verifyToken } from "../middlewares/verifyToken.js";
+import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
 import validateRequestBody from "../middlewares/validationMiddleware.js";
 
@@ -51,5 +54,13 @@ userRoutes.post(
   validateRequestBody(userValidation),
   addNewUserCtrl
 );
+userRoutes.get("/user/:id", verifyToken, getUserByIdCtrl);
+userRoutes.delete(
+  "/user/:id",
+  verifyToken,
+  checkRole(["admin", "super_admin"]),
+  deleteUserByIdCtrl
+);
+userRoutes.put("/user/update-password", verifyToken, updatePasswordByIdCtrl);
 
 export default userRoutes;
