@@ -13,6 +13,7 @@ import {
   updateUserLocationAndContactCtrl,
   createTempAccountCtrl,
   logoutUserCtrl,
+  addNewUserCtrl,
 } from "../controllers/usersCtrl.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -30,7 +31,7 @@ userRoutes.post("/verify-otp", verifyOtp);
 userRoutes.post("/send-otp", sendOtp);
 userRoutes.post("/forgot-password", forgotPassword);
 userRoutes.post("/reset-password", resetPassword);
-userRoutes.post("/logout", logoutUserCtrl);
+userRoutes.post("/logout", verifyToken, logoutUserCtrl);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", getUsersForChatCtrl);
 userRoutes.post("/toggle-ban", verifyToken, toggleBanUserCtrl);
@@ -44,6 +45,11 @@ userRoutes.post(
   "/create-temporary-account",
   validateRequestBody(userValidation),
   createTempAccountCtrl
+);
+userRoutes.post(
+  "/admin-register",
+  validateRequestBody(userValidation),
+  addNewUserCtrl
 );
 
 export default userRoutes;
