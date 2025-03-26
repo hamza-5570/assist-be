@@ -35,9 +35,9 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
   // await Notification.create({
   //   messageId: message._id,
   //   notifiedTo: receiverId ? [receiverId] : [],
-  //   notifiedBy: req.userAuthId,
+  //   notifiedBy: req.user,
   //   notificationType: "message",
-  //   content: `New message from ${req.userAuthId}`,
+  //   content: `New message from ${req.user}`,
   // });
 
   res.status(201).json({
@@ -68,7 +68,7 @@ export const deleteMessageCtrl = asyncHandler(async (req, res) => {
     throw new Error("Message not found");
   }
 
-  if (message.senderId.toString() !== req.userAuthId.toString()) {
+  if (message.senderId.toString() !== req.user.toString()) {
     throw new Error("Not authorized to delete this message.");
   }
 
@@ -90,8 +90,8 @@ export const markMessageAsReadCtrl = asyncHandler(async (req, res) => {
     throw new Error("Message not found");
   }
 
-  if (!message.readBy.includes(req.userAuthId)) {
-    message.readBy.push(req.userAuthId);
+  if (!message.readBy.includes(req.user)) {
+    message.readBy.push(req.user);
     message.isRead = true;
     message.readAt = Date.now();
     await message.save();
@@ -113,11 +113,11 @@ export const typingIndicatorCtrl = asyncHandler(async (req, res) => {
 
   if (conversationId) {
     await Conversation.findByIdAndUpdate(conversationId, {
-      $set: { typingUsers: isTyping ? [req.userAuthId] : [] },
+      $set: { typingUsers: isTyping ? [req.user] : [] },
     });
   } else if (groupId) {
     await GroupConversation.findByIdAndUpdate(groupId, {
-      $set: { typingUsers: isTyping ? [req.userAuthId] : [] },
+      $set: { typingUsers: isTyping ? [req.user] : [] },
     });
   }
 

@@ -170,7 +170,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 });
 
 export const logoutUserCtrl = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.user);
 
   if (!user) {
     throw new Error("User not found");
@@ -253,7 +253,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.userAuthId } }).select(
+    const users = await User.find({ _id: { $ne: req.user } }).select(
       "name email isOnline"
     );
 
