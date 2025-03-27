@@ -15,51 +15,26 @@ import {
 
 const conversationsRouter = express.Router();
 
-conversationsRouter.post("/", verifyToken, createOrFetchConversationCtrl);
+conversationsRouter.post("/", createOrFetchConversationCtrl);
 
-conversationsRouter.get("/", verifyToken, getUserConversationsCtrl);
+conversationsRouter.get("/", getUserConversationsCtrl);
 
-conversationsRouter.post("/message", verifyToken, sendMessageCtrl);
+conversationsRouter.post("/message", sendMessageCtrl);
 
-conversationsRouter.put(
-  "/:conversationId/read",
-  verifyToken,
-  markMessagesAsReadCtrl
-);
+conversationsRouter.put("/:conversationId/read", markMessagesAsReadCtrl);
 
-conversationsRouter.put(
-  "/:conversationId/mute",
-  verifyToken,
-  muteConversationCtrl
-);
+conversationsRouter.put("/:conversationId/mute", muteConversationCtrl);
 
-conversationsRouter.put(
-  "/:conversationId/unmute",
-  verifyToken,
-  unmuteConversationCtrl
-);
+conversationsRouter.put("/:conversationId/unmute", unmuteConversationCtrl);
 
-conversationsRouter.put(
-  "/:conversationId/archive",
-  verifyToken,
-  archiveConversationCtrl
-);
+conversationsRouter.put("/:conversationId/archive", archiveConversationCtrl);
 
-conversationsRouter.delete(
-  "/:conversationId",
-  verifyToken,
-  deleteConversationCtrl
-);
+conversationsRouter.delete("/:conversationId", deleteConversationCtrl);
 
-conversationsRouter.put(
-  "/:conversationId/typing",
-  verifyToken,
-  typingIndicatorCtrl
-);
+conversationsRouter.put("/:conversationId/typing", typingIndicatorCtrl);
 
 conversationsRouter.put(
   "/set-admin-null",
-  verifyToken,
   setAdminToNullInConversationByIdCtrl
 );
 
