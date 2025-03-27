@@ -10,6 +10,7 @@ import {
   archiveConversationCtrl,
   deleteConversationCtrl,
   typingIndicatorCtrl,
+  setAdminToNullInConversationByIdCtrl,
 } from "../controllers/conversationCtrl.js";
 
 const conversationsRouter = express.Router();
@@ -54,6 +55,12 @@ conversationsRouter.put(
   "/:conversationId/typing",
   verifyToken,
   typingIndicatorCtrl
+);
+
+conversationsRouter.put(
+  "/set-admin-null",
+  verifyToken,
+  setAdminToNullInConversationByIdCtrl
 );
 
 export default conversationsRouter;

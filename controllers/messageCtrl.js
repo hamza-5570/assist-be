@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import Message from "../model/Message.js";
 import Conversation from "../model/Conversation.js";
 import GroupConversation from "../model/GroupConversation.js";
+import Notification from "../model/Notification.js";
 
 export const sendMessageCtrl = asyncHandler(async (req, res) => {
   const { receiverId, text, conversationId, groupId } = req.body;
@@ -31,14 +32,13 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     });
   }
 
-  // Send notification
-  // await Notification.create({
-  //   messageId: message._id,
-  //   notifiedTo: receiverId ? [receiverId] : [],
-  //   notifiedBy: req.user,
-  //   notificationType: "message",
-  //   content: `New message from ${req.user}`,
-  // });
+  await Notification.create({
+    messageId: message._id,
+    notifiedTo: receiverId ? [receiverId] : [],
+    notifiedBy: req.user,
+    notificationType: "message",
+    content: `New message from ${req.user.name} - ${req.user.email}`,
+  });
 
   res.status(201).json({
     status: "success",

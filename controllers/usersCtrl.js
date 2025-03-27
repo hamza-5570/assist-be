@@ -255,7 +255,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } }).select(
-      "name email isOnline"
+      "name email isOnline isBanned is Suspended"
     );
 
     res.json(users);
@@ -338,26 +338,40 @@ export const updateUserLocationAndContactCtrl = asyncHandler(
 export const createTempAccountCtrl = asyncHandler(async (req, res) => {
   const { name, email } = req.body;
 
-  const userExists = await User.findOne({ email });
-  if (userExists) {
+  const user = await User.findOne({ email });
+
+  if (user) {
+    if (!user.password) {
+      user.name = name;
+      await user.save();
+
+      const token = generateToken(user._id);
+      return res.status(200).json({
+        status: "success",
+        message: "User details updated successfully and logged in",
+        token,
+        user,
+      });
+    }
+
     return res
       .status(400)
-      .json({ message: "User already exists with this email" });
+      .json({ message: "User already exists with a password" });
   }
 
-  const user = await User.create({
+  const newUser = await User.create({
     name,
     email,
     isTemporary: true,
   });
 
-  const token = generateToken(user._id);
+  const token = generateToken(newUser._id);
 
   res.status(201).json({
     status: "success",
     message: "User account created successfully",
     token,
-    user,
+    user: newUser,
   });
 });
 
