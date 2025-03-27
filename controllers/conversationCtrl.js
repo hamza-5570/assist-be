@@ -16,21 +16,34 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     ? req.user.id
     : null;
 
+  console.log("userId:", userId);
+
   if (userId) {
     const existingConversation = await Conversation.findOne({
       recipients: { $all: [null, recipientId] },
-    }).populate("recipients", "name email");
+    });
 
     if (existingConversation) {
-      existingConversation.recipients = existingConversation.recipients.map(
-        (id) => (id === null ? userId : id)
+      await Conversation.updateOne(
+        { _id: existingConversation._id },
+        {
+          $set: {
+            "recipients.$[nullRecipient]": userId,
+          },
+        },
+        {
+          arrayFilters: [{ nullRecipient: null }],
+        }
       );
-      await existingConversation.save();
+
+      const updatedConversation = await Conversation.findOne({
+        _id: existingConversation._id,
+      }).populate("recipients", "name email");
 
       return res.json({
         status: "success",
         message: "Conversation updated with admin's ID successfully",
-        data: existingConversation,
+        data: updatedConversation,
       });
     }
   }

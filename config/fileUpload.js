@@ -23,8 +23,11 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: "assist",
+  params: async (req, file) => {
+    return {
+      folder: "assist",
+      resource_type: "auto",
+    };
   },
 });
 
