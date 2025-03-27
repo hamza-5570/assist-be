@@ -37,8 +37,8 @@ userRoutes.post("/reset-password", resetPassword);
 userRoutes.post("/logout", verifyToken, logoutUserCtrl);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", getUsersForChatCtrl);
-userRoutes.post("/toggle-ban", verifyToken, toggleBanUserCtrl);
-userRoutes.post("/handle-suspension", verifyToken, handleSuspensionCtrl);
+userRoutes.put("/toggle-ban", verifyToken, toggleBanUserCtrl);
+userRoutes.put("/handle-suspension", verifyToken, handleSuspensionCtrl);
 userRoutes.post(
   "/update-location-contact",
   verifyToken,

@@ -255,7 +255,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } }).select(
-      "name email isOnline isBanned is Suspended"
+      "name email isOnline isBanned isSuspended"
     );
 
     res.json(users);
@@ -282,8 +282,36 @@ export const toggleBanUserCtrl = asyncHandler(async (req, res) => {
   });
 });
 
+// export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
+//   const { userId, isSuspended, suspensionExpiryDate } = req.body;
+
+//   const user = await User.findById(userId);
+//   if (!user) {
+//     throw new Error("User not found");
+//   }
+
+//   user.isSuspended = isSuspended;
+//   user.suspensionExpiryDate = isSuspended
+//     ? new Date(suspensionExpiryDate)
+//     : null;
+
+//   if (user.isSuspended && user.suspensionExpiryDate <= new Date()) {
+//     user.isSuspended = false;
+//   }
+
+//   await user.save();
+
+//   res.json({
+//     status: "success",
+//     message: isSuspended
+//       ? "User has been suspended"
+//       : "Suspension has been removed",
+//     user,
+//   });
+// });
+
 export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
-  const { userId, isSuspended, suspensionExpiryDate } = req.body;
+  const { userId, isSuspended } = req.body;
 
   const user = await User.findById(userId);
   if (!user) {
@@ -291,12 +319,18 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
   }
 
   user.isSuspended = isSuspended;
-  user.suspensionExpiryDate = isSuspended
-    ? new Date(suspensionExpiryDate)
-    : null;
+
+  if (isSuspended) {
+    const suspensionExpiryDate = new Date();
+    suspensionExpiryDate.setDate(suspensionExpiryDate.getDate() + 7 * 7);
+    user.suspensionExpiryDate = suspensionExpiryDate;
+  } else {
+    user.suspensionExpiryDate = null;
+  }
 
   if (user.isSuspended && user.suspensionExpiryDate <= new Date()) {
     user.isSuspended = false;
+    user.suspensionExpiryDate = null;
   }
 
   await user.save();
@@ -304,8 +338,8 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: "success",
     message: isSuspended
-      ? "User has been suspended"
-      : "Suspension has been removed",
+      ? "User has been suspended for 7 weeks."
+      : "Suspension has been removed.",
     user,
   });
 });
