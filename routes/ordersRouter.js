@@ -10,6 +10,7 @@ import {
   getOrdersByCustomerCtrl,
 } from "../controllers/orderCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
+import upload from "../config/fileUpload.js";
 
 const ordersRouter = express.Router();
 
@@ -17,6 +18,7 @@ ordersRouter.post(
   "/create-order",
   verifyToken,
   checkRole(["admin", "super_admin"]),
+  upload.array("files"),
   createOrderOfferCtrl
 );
 
