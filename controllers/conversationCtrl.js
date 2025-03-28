@@ -4,8 +4,52 @@ import Message from "../model/Message.js";
 
 export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   const { recipientId } = req.body;
+
+  if (!recipientId) {
+    return res.status(400).json({
+      status: "error",
+      message: "Recipient ID is required",
+    });
+  }
+
+  const userId = ["admin", "super_admin", "moderator"].includes(req.user.role)
+    ? req.user.id
+    : null;
+
+  console.log("userId:", userId);
+
+  if (userId) {
+    const existingConversation = await Conversation.findOne({
+      recipients: { $all: [null, recipientId] },
+    });
+
+    if (existingConversation) {
+      await Conversation.updateOne(
+        { _id: existingConversation._id },
+        {
+          $set: {
+            "recipients.$[nullRecipient]": userId,
+          },
+        },
+        {
+          arrayFilters: [{ nullRecipient: null }],
+        }
+      );
+
+      const updatedConversation = await Conversation.findOne({
+        _id: existingConversation._id,
+      }).populate("recipients", "name email");
+
+      return res.json({
+        status: "success",
+        message: "Conversation updated with admin's ID successfully",
+        data: updatedConversation,
+      });
+    }
+  }
+
   const existingConversation = await Conversation.findOne({
-    recipients: { $all: [req.user.id, recipientId] },
+    recipients: { $all: [userId, recipientId] },
   }).populate("recipients", "name email");
 
   if (existingConversation) {
@@ -17,7 +61,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   }
 
   const conversation = await Conversation.create({
-    recipients: [req.user.id, recipientId],
+    recipients: [userId, recipientId],
   });
 
   res.status(201).json({
@@ -182,3 +226,52 @@ export const typingIndicatorCtrl = asyncHandler(async (req, res) => {
     message: isTyping ? "User is typing..." : "User stopped typing",
   });
 });
+
+export const setAdminToNullInConversationByIdCtrl = asyncHandler(
+  async (req, res) => {
+    const { conversationId } = req.body;
+
+    if (!conversationId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Conversation ID is required",
+      });
+    }
+
+    if (!["admin", "super_admin", "moderator"].includes(req.user.role)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Forbidden: Only admins, super admins, or moderators can update conversations",
+      });
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation) {
+      return res.status(404).json({
+        status: "error",
+        message: "Conversation not found",
+      });
+    }
+
+    if (!conversation.recipients.includes(req.user.id)) {
+      return res.status(400).json({
+        status: "error",
+        message: "The admin's ID is not part of this conversation",
+      });
+    }
+
+    conversation.recipients = conversation.recipients.map((id) =>
+      id === req.user.id ? null : id
+    );
+
+    await conversation.save();
+
+    res.json({
+      status: "success",
+      message: "Admin ID set to null in the conversation",
+      data: conversation,
+    });
+  }
+);

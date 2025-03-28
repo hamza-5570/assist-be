@@ -111,6 +111,7 @@ const onlineUsers = new Map();
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // Handle user going online
   socket.on("user-online", async (userId) => {
     onlineUsers.set(userId, socket.id);
     await User.findByIdAndUpdate(userId, {
@@ -120,6 +121,7 @@ io.on("connection", (socket) => {
     io.emit("online-users", Array.from(onlineUsers.keys()));
   });
 
+  // Handle user disconnecting
   socket.on("disconnect", async () => {
     let disconnectedUserId;
     onlineUsers.forEach((value, key) => {
@@ -134,127 +136,141 @@ io.on("connection", (socket) => {
     }
     io.emit("online-users", Array.from(onlineUsers.keys()));
   });
-  socket.on("send message", (data) => {
-    console.log(data);
-    io.emit("receive message", data);
-  });
-  // socket.on(
-  //   "send-message",
-  //   async ({
-  //     senderId,
-  //     receiverId,
-  //     text,
-  //     attachments,
-  //     conversationId,
-  //     groupId,
-  //   }) => {
-  //     let newMessage;
 
-  //     if (conversationId) {
-  //       newMessage = await Message.create({
-  //         senderId,
-  //         receiverId,
-  //         text,
-  //         attachments,
-  //         conversationId,
-  //       });
-  //       await Conversation.findByIdAndUpdate(conversationId, {
-  //         lastMessage: newMessage._id,
-  //         $push: { messages: newMessage._id },
-  //       });
-  //     } else if (groupId) {
-  //       const group = await GroupConversation.findById(groupId);
-  //       newMessage = await Message.create({
-  //         senderId,
-  //         receiverId: group.group_members,
-  //         text,
-  //         attachments,
-  //         conversationId: groupId,
-  //       });
-  //       await GroupConversation.findByIdAndUpdate(groupId, {
-  //         lastMessage: newMessage._id,
-  //         $push: { messages: newMessage._id },
-  //       });
-  //     }
+  // Send message event (integrating with sendMessageCtrl)
+  socket.on(
+    "send-message",
+    async ({
+      senderId,
+      receiverId,
+      text,
+      attachments,
+      conversationId,
+      groupId,
+    }) => {
+      try {
+        let newMessage;
+        // Handle conversation message
+        if (conversationId) {
+          const messageData = {
+            senderId,
+            receiverId,
+            text,
+            attachments,
+            conversationId,
+          };
+          newMessage = await messageController(
+            { body: messageData },
+            { status: () => ({ json: (msg) => msg }) }
+          );
+        }
+        // Handle group message
+        else if (groupId) {
+          const group = await GroupConversation.findById(groupId);
+          newMessage = await Message.create({
+            senderId,
+            receiverId: group.group_members,
+            text,
+            attachments,
+            conversationId: groupId,
+          });
+          await GroupConversation.findByIdAndUpdate(groupId, {
+            lastMessage: newMessage._id,
+            $push: { messages: newMessage._id },
+          });
+        }
+        // Emit message to the receiver
+        io.to(onlineUsers.get(receiverId)).emit("receive-message", newMessage);
+      } catch (err) {
+        console.error("Error in send-message:", err);
+      }
+    }
+  );
 
-  //     io.to(onlineUsers.get(receiverId)).emit("receive-message", newMessage);
-  //   }
-  // );
-
-  // 🔵 **Typing Indicator**
-  socket.on("typing", ({ conversationId, groupId, userId, isTyping }) => {
-    if (conversationId) {
-      io.to(conversationId).emit("user-typing", { userId, isTyping });
-    } else if (groupId) {
-      io.to(groupId).emit("user-typing", { userId, isTyping });
+  // Typing indicator (integrating with typingIndicatorCtrl)
+  socket.on("typing", async ({ conversationId, groupId, userId, isTyping }) => {
+    try {
+      // Call the typingIndicatorCtrl to update typing status
+      await typingIndicatorCtrl(
+        { body: { conversationId, groupId, isTyping } },
+        { status: () => ({ json: () => {} }) }
+      );
+      if (conversationId) {
+        io.to(conversationId).emit("user-typing", { userId, isTyping });
+      } else if (groupId) {
+        io.to(groupId).emit("user-typing", { userId, isTyping });
+      }
+    } catch (err) {
+      console.error("Error in typing event:", err);
     }
   });
 
-  // 🔵 **Read Receipts & Message Status**
+  // Mark message as read (integrating with Message controller)
   socket.on("mark-as-read", async ({ messageId, userId }) => {
-    await Message.findByIdAndUpdate(messageId, {
-      isRead: true,
-      readAt: new Date(),
-      $addToSet: { readBy: userId },
-    });
-    io.emit("message-read", { messageId, userId });
+    try {
+      const updatedMessage = await Message.findByIdAndUpdate(messageId, {
+        isRead: true,
+        readAt: new Date(),
+        $addToSet: { readBy: userId },
+      });
+      io.emit("message-read", { messageId, userId });
+    } catch (err) {
+      console.error("Error in mark-as-read:", err);
+    }
   });
 
-  // 🔵 **Call Signaling (Audio & Video Calls)**
+  // Call signaling (using notifyNewCallCtrl for notifications)
   socket.on("start-call", async ({ callerId, receiverId, callType }) => {
-    const call = await Call.create({
-      callerId,
-      receiverId,
-      callType,
-      status: "active",
-      participants: [callerId, receiverId],
-      startTime: new Date(),
-    });
+    try {
+      const call = await Call.create({
+        callerId,
+        receiverId,
+        callType,
+        status: "active",
+        participants: [callerId, receiverId],
+        startTime: new Date(),
+      });
+      io.to(onlineUsers.get(receiverId)).emit("incoming-call", {
+        callerId,
+        callType,
+        callId: call._id,
+      });
 
-    io.to(onlineUsers.get(receiverId)).emit("incoming-call", {
-      callerId,
-      callType,
-      callId: call._id,
-    });
+      // Send notification about the call
+      await notifyNewCallCtrl(
+        { body: { callId: call._id } },
+        { status: () => ({ json: () => {} }) }
+      );
+    } catch (err) {
+      console.error("Error in start-call:", err);
+    }
   });
 
+  // End call event (using call signaling)
   socket.on("end-call", async ({ callId, endReason }) => {
-    const call = await Call.findByIdAndUpdate(callId, {
-      status: "ended",
-      endReason,
-      endTime: new Date(),
-    });
-    io.emit("call-ended", { callId });
+    try {
+      const call = await Call.findByIdAndUpdate(callId, {
+        status: "ended",
+        endReason,
+        endTime: new Date(),
+      });
+      io.emit("call-ended", { callId });
+    } catch (err) {
+      console.error("Error in end-call:", err);
+    }
   });
 
-  // 🔵 **Group Call Handling**
-  socket.on("join-group-call", async ({ callId, userId }) => {
-    const call = await Call.findById(callId);
-    if (!call) return;
-    call.participants.push(userId);
-    await call.save();
-    io.emit("group-call-joined", { callId, userId });
-  });
-
-  socket.on("leave-group-call", async ({ callId, userId }) => {
-    const call = await Call.findById(callId);
-    if (!call) return;
-    call.participants = call.participants.filter(
-      (id) => id.toString() !== userId.toString()
-    );
-    await call.save();
-    io.emit("group-call-left", { callId, userId });
-  });
-
-  // 🔵 **Send Notifications**
+  // Send notifications (integrating with createNotificationCtrl)
   socket.on("send-notification", async ({ userId, content, type }) => {
-    const notification = await Notification.create({
-      notifiedBy: userId,
-      notifiedTo: [userId],
-      notificationType: type,
-      content,
-    });
-    io.to(onlineUsers.get(userId)).emit("new-notification", notification);
+    try {
+      const notification = await createNotificationCtrl(
+        { body: { notifiedTo: [userId], notificationType: type, content } },
+        { status: () => ({ json: () => {} }) }
+      );
+      io.to(onlineUsers.get(userId)).emit("new-notification", notification);
+    } catch (err) {
+      console.error("Error in send-notification:", err);
+    }
   });
 });
 

@@ -255,7 +255,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } }).select(
-      "name email isOnline"
+      "name email isOnline isBanned isSuspended"
     );
 
     res.json(users);
@@ -282,8 +282,36 @@ export const toggleBanUserCtrl = asyncHandler(async (req, res) => {
   });
 });
 
+// export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
+//   const { userId, isSuspended, suspensionExpiryDate } = req.body;
+
+//   const user = await User.findById(userId);
+//   if (!user) {
+//     throw new Error("User not found");
+//   }
+
+//   user.isSuspended = isSuspended;
+//   user.suspensionExpiryDate = isSuspended
+//     ? new Date(suspensionExpiryDate)
+//     : null;
+
+//   if (user.isSuspended && user.suspensionExpiryDate <= new Date()) {
+//     user.isSuspended = false;
+//   }
+
+//   await user.save();
+
+//   res.json({
+//     status: "success",
+//     message: isSuspended
+//       ? "User has been suspended"
+//       : "Suspension has been removed",
+//     user,
+//   });
+// });
+
 export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
-  const { userId, isSuspended, suspensionExpiryDate } = req.body;
+  const { userId, isSuspended } = req.body;
 
   const user = await User.findById(userId);
   if (!user) {
@@ -291,12 +319,18 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
   }
 
   user.isSuspended = isSuspended;
-  user.suspensionExpiryDate = isSuspended
-    ? new Date(suspensionExpiryDate)
-    : null;
+
+  if (isSuspended) {
+    const suspensionExpiryDate = new Date();
+    suspensionExpiryDate.setDate(suspensionExpiryDate.getDate() + 7 * 7);
+    user.suspensionExpiryDate = suspensionExpiryDate;
+  } else {
+    user.suspensionExpiryDate = null;
+  }
 
   if (user.isSuspended && user.suspensionExpiryDate <= new Date()) {
     user.isSuspended = false;
+    user.suspensionExpiryDate = null;
   }
 
   await user.save();
@@ -304,8 +338,8 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: "success",
     message: isSuspended
-      ? "User has been suspended"
-      : "Suspension has been removed",
+      ? "User has been suspended for 7 weeks."
+      : "Suspension has been removed.",
     user,
   });
 });
@@ -338,26 +372,40 @@ export const updateUserLocationAndContactCtrl = asyncHandler(
 export const createTempAccountCtrl = asyncHandler(async (req, res) => {
   const { name, email } = req.body;
 
-  const userExists = await User.findOne({ email });
-  if (userExists) {
+  const user = await User.findOne({ email });
+
+  if (user) {
+    if (!user.password) {
+      user.name = name;
+      await user.save();
+
+      const token = generateToken(user._id);
+      return res.status(200).json({
+        status: "success",
+        message: "User details updated successfully and logged in",
+        token,
+        user,
+      });
+    }
+
     return res
       .status(400)
-      .json({ message: "User already exists with this email" });
+      .json({ message: "User already exists with a password" });
   }
 
-  const user = await User.create({
+  const newUser = await User.create({
     name,
     email,
     isTemporary: true,
   });
 
-  const token = generateToken(user._id);
+  const token = generateToken(newUser._id);
 
   res.status(201).json({
     status: "success",
     message: "User account created successfully",
     token,
-    user,
+    user: newUser,
   });
 });
 
