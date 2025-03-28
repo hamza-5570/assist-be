@@ -17,6 +17,11 @@ const MessageSchema = new Schema(
       ref: "Order",
       default: null,
     },
+    orderReference: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      default: null,
+    },
     orderProductName: {
       type: String,
       default: null,

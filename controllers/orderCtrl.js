@@ -22,10 +22,39 @@ export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
     totalPrice,
   });
 
+  let conversation = await Conversation.findOne({
+    participants: { $all: [req.user._id, customerId] },
+  });
+
+  if (!conversation) {
+    conversation = await Conversation.create({
+      participants: [req.user._id, customerId],
+      messages: [],
+    });
+  }
+
+  const message = await Message.create({
+    senderId: req.user._id,
+    receiverId: [customerId],
+    text: `A new order has been created for ${productName}`,
+    conversationId: conversation._id,
+    orderReference: order._id,
+    orderProductName: productName,
+    orderTotalPrice: totalPrice,
+    orderProductImage: productImages.length > 0 ? productImages[0] : null,
+    orderStatus: order.status,
+  });
+
+  await Conversation.findByIdAndUpdate(conversation._id, {
+    lastMessage: message._id,
+    $push: { messages: message._id },
+  });
+
   res.json({
     status: "success",
     message: "Order offer created successfully",
     order,
+    messageNotification: "Automatic order message sent to customer",
   });
 });
 
