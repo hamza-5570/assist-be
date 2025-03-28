@@ -37,9 +37,9 @@ ordersRouter.put(
 );
 
 ordersRouter.post(
-  "/accept-order-and-checkout",
+  "/checkout",
   verifyToken,
-  checkRole(["customer"]),
+  checkRole(["customer", "admin"]),
   checkoutCtrl
 );
 

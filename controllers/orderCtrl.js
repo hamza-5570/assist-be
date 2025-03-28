@@ -94,6 +94,7 @@ export const updateOrderStatusCtrl = asyncHandler(async (req, res) => {
 });
 
 export const checkoutCtrl = asyncHandler(async (req, res) => {
+  console.log(req.body);
   const { orderId } = req.body;
 
   const order = await Order.findOne({ orderId }).populate("customerReference");
@@ -125,8 +126,8 @@ export const checkoutCtrl = asyncHandler(async (req, res) => {
   const session = await stripe.checkout.sessions.create({
     line_items: lineItems,
     mode: "payment",
-    success_url: `${process.env.FRONTEND}/success?orderId=${orderId}`,
-    cancel_url: `${process.env.FRONTEND}/cancel`,
+    success_url: `${process.env.FRONTEND}/`,
+    cancel_url: `${process.env.FRONTEND}/`,
     metadata: { orderId: orderId },
   });
 
