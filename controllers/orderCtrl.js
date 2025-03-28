@@ -8,12 +8,14 @@ dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
 export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
-  const { productName, productImages, customerId, totalPrice } = req.body;
+  const { productName, customerId, totalPrice } = req.body;
 
   const user = await User.findById(customerId);
   if (!user) {
     throw new Error("Customer not found");
   }
+
+  const productImages = req.files?.map((file) => file.path) || [];
 
   const order = await Order.create({
     productName,

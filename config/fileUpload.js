@@ -27,6 +27,9 @@ const storage = new CloudinaryStorage({
     return {
       folder: "assist",
       resource_type: "auto",
+      use_filename: true,
+      unique_filename: false,
+      public_id: file.originalname,
     };
   },
 });
