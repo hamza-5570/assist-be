@@ -11,6 +11,29 @@ const MessageSchema = new Schema(
     receiverId: { type: [mongoose.Schema.Types.ObjectId], ref: "User" },
     text: { type: String },
     attachments: { type: [String] },
+
+    orderReference: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      default: null,
+    },
+    orderProductName: {
+      type: String,
+      default: null,
+    },
+    orderTotalPrice: {
+      type: Number,
+      default: null,
+    },
+    orderProductImage: {
+      type: String,
+      default: null,
+    },
+    orderStatus: {
+      type: String,
+      default: null,
+    },
+
     isRead: { type: Boolean, default: false },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     deliveredAt: { type: Date },
@@ -24,6 +47,7 @@ const MessageSchema = new Schema(
   },
   { timestamps: true }
 );
+
 const Message = mongoose.model("Message", MessageSchema);
 
 export default Message;

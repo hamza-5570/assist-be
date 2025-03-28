@@ -5,11 +5,30 @@ import GroupConversation from "../model/GroupConversation.js";
 import Notification from "../model/Notification.js";
 
 export const sendMessageCtrl = asyncHandler(async (req, res) => {
-  const { receiverId, text, conversationId, groupId } = req.body;
+  const {
+    receiverId,
+    text,
+    conversationId,
+    groupId,
+    orderReference,
+    orderProductName,
+    orderTotalPrice,
+    orderProductImage,
+    orderStatus,
+  } = req.body;
+
   let attachments = req.files ? req.files.map((file) => file.path) : [];
 
   if (!receiverId && !groupId) {
     throw new Error("Receiver or Group ID is required.");
+  }
+
+  let order = null;
+  if (orderReference) {
+    order = await Order.findById(orderReference);
+    if (!order) {
+      throw new Error("Invalid Order Reference");
+    }
   }
 
   const message = await Message.create({
@@ -18,6 +37,15 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     text,
     attachments,
     conversationId: conversationId || null,
+
+    // Add order-related fields
+    orderReference: orderReference || null,
+    orderProductName: orderProductName || (order ? order.productName : null),
+    orderTotalPrice: orderTotalPrice || (order ? order.totalPrice : null),
+    orderProductImage:
+      orderProductImage ||
+      (order && order.productImages.length > 0 ? order.productImages[0] : null),
+    orderStatus: orderStatus || (order ? order.status : null),
   });
 
   if (conversationId) {
@@ -74,6 +102,11 @@ export const deleteMessageCtrl = asyncHandler(async (req, res) => {
 
   message.text = "This message was deleted";
   message.attachments = [];
+  message.orderReference = null;
+  message.orderProductName = null;
+  message.orderTotalPrice = null;
+  message.orderProductImage = null;
+  message.orderStatus = null;
   await message.save();
 
   res.json({
