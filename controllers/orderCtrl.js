@@ -126,8 +126,8 @@ export const checkoutCtrl = asyncHandler(async (req, res) => {
   const session = await stripe.checkout.sessions.create({
     line_items: lineItems,
     mode: "payment",
-    success_url: `${process.env.FRONTEND}/`,
-    cancel_url: `${process.env.FRONTEND}/`,
+    success_url: `${process.env.FRONTEND}/user/orders`,
+    cancel_url: `${process.env.FRONTEND}/user/orders`,
     metadata: { orderId: orderId },
   });
 
