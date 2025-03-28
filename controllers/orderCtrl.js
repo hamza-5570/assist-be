@@ -3,12 +3,15 @@ import Order from "../model/Order.js";
 import User from "../model/User.js";
 import Stripe from "stripe";
 import dotenv from "dotenv";
+import Conversation from "../model/Conversation.js";
+import Message from "../model/Message.js";
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
 export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
-  const { productName, productImages, customerId, totalPrice } = req.body;
+  const { productName, productImages, customerId, totalPrice, conversationId } =
+    req.body;
 
   const user = await User.findById(customerId);
   if (!user) {
@@ -22,30 +25,20 @@ export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
     totalPrice,
   });
 
-  let conversation = await Conversation.findOne({
-    participants: { $all: [req.user._id, customerId] },
-  });
-
-  if (!conversation) {
-    conversation = await Conversation.create({
-      participants: [req.user._id, customerId],
-      messages: [],
-    });
-  }
-
   const message = await Message.create({
-    senderId: req.user._id,
+    senderId: req.user.id,
     receiverId: [customerId],
     text: `A new order has been created for ${productName}`,
-    conversationId: conversation._id,
+    conversationId: conversationId,
     orderReference: order._id,
+    orderId: order.orderId,
     orderProductName: productName,
     orderTotalPrice: totalPrice,
-    orderProductImage: productImages.length > 0 ? productImages[0] : null,
+    orderProductImage: null,
     orderStatus: order.status,
   });
 
-  await Conversation.findByIdAndUpdate(conversation._id, {
+  await Conversation.findByIdAndUpdate(conversationId, {
     lastMessage: message._id,
     $push: { messages: message._id },
   });
@@ -99,7 +92,7 @@ export const updateOrderStatusCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-export const acceptOrderAndCheckoutCtrl = asyncHandler(async (req, res) => {
+export const checkoutCtrl = asyncHandler(async (req, res) => {
   const { orderId } = req.body;
 
   const order = await Order.findOne({ orderId }).populate("customerReference");

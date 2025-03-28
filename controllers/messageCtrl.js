@@ -11,6 +11,7 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     conversationId,
     groupId,
     orderReference,
+    orderId,
     orderProductName,
     orderTotalPrice,
     orderProductImage,
@@ -40,6 +41,7 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
     // Add order-related fields
     orderReference: orderReference || null,
+    orderReference: orderId || null,
     orderProductName: orderProductName || (order ? order.productName : null),
     orderTotalPrice: orderTotalPrice || (order ? order.totalPrice : null),
     orderProductImage:

@@ -22,6 +22,10 @@ const MessageSchema = new Schema(
       ref: "Order",
       default: null,
     },
+    orderId: {
+      type: String,
+      default: null,
+    },
     orderProductName: {
       type: String,
       default: null,

@@ -274,10 +274,10 @@ io.on("connection", (socket) => {
   });
 });
 
-// server.listen(PORT, () =>
-//   console.log(`Server is up and running on port ${PORT}`)
-// );
+server.listen(PORT, () =>
+  console.log(`Server is up and running on port ${PORT}`)
+);
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on http://0.0.0.0:${PORT}`);
-});
+// server.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server is running on http://0.0.0.0:${PORT}`);
+// });

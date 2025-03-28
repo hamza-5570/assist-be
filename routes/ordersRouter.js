@@ -3,7 +3,7 @@ import {
   createOrderOfferCtrl,
   updateOrderDetailsCtrl,
   updateOrderStatusCtrl,
-  acceptOrderAndCheckoutCtrl,
+  checkoutCtrl,
   getAllOrdersCtrl,
   getSingleOrderCtrl,
   deleteOrderCtrl,
@@ -38,7 +38,7 @@ ordersRouter.post(
   "/accept-order-and-checkout",
   verifyToken,
   checkRole(["customer"]),
-  acceptOrderAndCheckoutCtrl
+  checkoutCtrl
 );
 
 ordersRouter.get(
