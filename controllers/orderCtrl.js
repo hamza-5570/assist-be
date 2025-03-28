@@ -34,7 +34,7 @@ export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
     orderId: order.orderId,
     orderProductName: productName,
     orderTotalPrice: totalPrice,
-    orderProductImage: null,
+    orderProductImage: productImages?.[0] || null,
     orderStatus: order.status,
   });
 
@@ -47,6 +47,7 @@ export const createOrderOfferCtrl = asyncHandler(async (req, res) => {
     status: "success",
     message: "Order offer created successfully",
     order,
+    message,
     messageNotification: "Automatic order message sent to customer",
   });
 });
