@@ -14,9 +14,8 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     });
   }
 
-  const userId = ["admin", "super_admin", "moderator"].includes(req.user.role)
-    ? req.user.id
-    : null;
+  const isAdmin = ["admin", "super_admin", "moderator"].includes(req.user.role);
+  const userId = isAdmin ? req.user.id : null;
 
   const recipient = await User.findById(recipientId);
   if (!recipient) {
@@ -28,23 +27,32 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 
   const recipientName = recipient.name;
 
-  if (userId) {
-    const existingConversation = await Conversation.findOne({
-      recipients: { $all: [null, recipientId] },
-    });
+  let existingConversation = await Conversation.findOne({
+    recipients: recipientId,
+  }).populate("recipients", "name email");
 
-    if (existingConversation) {
-      await Conversation.updateOne(
-        { _id: existingConversation._id },
-        {
-          $set: {
-            "recipients.$[nullRecipient]": userId,
-          },
-        },
-        {
-          arrayFilters: [{ nullRecipient: null }],
-        }
-      );
+  if (existingConversation) {
+    const recipientStrings = existingConversation.recipients.map((r) =>
+      r ? (typeof r === "object" ? r._id.toString() : r.toString()) : null
+    );
+
+    const userIdStr = userId ? userId.toString() : null;
+    const userAlreadyInConversation = recipientStrings.includes(userIdStr);
+
+    if (isAdmin && !userAlreadyInConversation) {
+      const nullIndex = recipientStrings.indexOf(null);
+
+      if (nullIndex !== -1) {
+        await Conversation.updateOne(
+          { _id: existingConversation._id },
+          { $set: { [`recipients.${nullIndex}`]: userId } }
+        );
+      } else {
+        await Conversation.updateOne(
+          { _id: existingConversation._id },
+          { $push: { recipients: userId } }
+        );
+      }
 
       const rolesToNotify = ["admin", "super_admin", "moderator"];
       const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
@@ -55,7 +63,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
         content: `Guest ${recipientName} wants to chat with you.`,
       });
 
-      notifications.forEach(async (notification) => {
+      for (const notification of notifications) {
         if (notification.notifiedTo.toString() === userId.toString()) {
           await Notification.updateOne(
             { _id: notification._id },
@@ -67,28 +75,18 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
             { $set: { isAccepted: false } }
           );
         }
-      });
+      }
 
-      const updatedConversation = await Conversation.findOne({
+      existingConversation = await Conversation.findOne({
         _id: existingConversation._id,
       }).populate("recipients", "name email");
-
-      return res.json({
-        status: "success",
-        message: "Conversation updated with admin's ID successfully",
-        data: updatedConversation,
-      });
     }
-  }
 
-  const existingConversation = await Conversation.findOne({
-    recipients: { $all: [userId, recipientId] },
-  }).populate("recipients", "name email");
-
-  if (existingConversation) {
     return res.json({
       status: "success",
-      message: "Conversation fetched successfully",
+      message: userAlreadyInConversation
+        ? "Conversation fetched successfully"
+        : "Joined conversation successfully",
       data: existingConversation,
     });
   }
@@ -97,22 +95,28 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     recipients: [userId, recipientId],
   });
 
-  const rolesToNotify = ["admin", "super_admin", "moderator"];
-  const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+  if (!isAdmin) {
+    const rolesToNotify = ["admin", "super_admin", "moderator"];
+    const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
-  usersToNotify.forEach(async (user) => {
-    await Notification.create({
-      notifiedTo: user._id,
-      notifiedBy: req.user.id,
-      notificationType: "customer_request",
-      content: `Guest ${recipientName} wants to chat with you.`,
-    });
-  });
+    for (const user of usersToNotify) {
+      await Notification.create({
+        notifiedTo: user._id,
+        notifiedBy: req.user.id,
+        notificationType: "customer_request",
+        content: `Guest ${recipientName} wants to chat with you.`,
+      });
+    }
+  }
+
+  const populatedConversation = await Conversation.findById(
+    conversation._id
+  ).populate("recipients", "name email");
 
   res.status(201).json({
     status: "success",
     message: "Conversation created successfully",
-    data: conversation,
+    data: populatedConversation,
   });
 });
 

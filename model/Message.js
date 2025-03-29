@@ -8,7 +8,11 @@ const MessageSchema = new Schema(
       ref: "User",
       required: true,
     },
-    receiverId: { type: [mongoose.Schema.Types.ObjectId], ref: "User" },
+    receiverId: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
     text: { type: String },
     attachments: { type: [String] },
 
