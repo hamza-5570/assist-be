@@ -26,6 +26,7 @@ const UserSchema = new Schema(
     phoneNumber: { type: String, default: null },
     postalCode: { type: String, default: null },
     isTemporary: { type: Boolean, default: false },
+    profileImage: { type: String, default: null },
   },
   { timestamps: true }
 );

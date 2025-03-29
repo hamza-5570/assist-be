@@ -38,8 +38,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     text,
     attachments,
     conversationId: conversationId || null,
-
-    // Add order-related fields
     orderReference: orderReference || null,
     orderReference: orderId || null,
     orderProductName: orderProductName || (order ? order.productName : null),

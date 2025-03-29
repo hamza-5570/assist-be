@@ -255,7 +255,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } }).select(
-      "name email isOnline isBanned isSuspended"
+      "name email isOnline isBanned isSuspended role"
     );
 
     res.json(users);
@@ -344,30 +344,38 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
   });
 });
 
-export const updateUserLocationAndContactCtrl = asyncHandler(
-  async (req, res) => {
-    const { userId, name, country, city, phoneNumber, postalCode } = req.body;
+export const updateUserCtrl = asyncHandler(async (req, res) => {
+  const { userId, name, country, city, phoneNumber, postalCode } = req.body;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
+  let profileImageUrl = null;
 
-    user.name = name || user.name;
-    user.country = country || user.country;
-    user.city = city || user.city;
-    user.phoneNumber = phoneNumber || user.phoneNumber;
-    user.postalCode = postalCode || user.postalCode;
-
-    await user.save();
-
-    res.json({
-      status: "success",
-      message: "User location, contact details, and name updated successfully",
-      user,
-    });
+  if (req.file) {
+    profileImageUrl = req.file.path;
   }
-);
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (profileImageUrl) {
+    user.profileImage = profileImageUrl;
+  }
+
+  user.name = name || user.name;
+  user.country = country || user.country;
+  user.city = city || user.city;
+  user.phoneNumber = phoneNumber || user.phoneNumber;
+  user.postalCode = postalCode || user.postalCode;
+
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: "User location, contact details, and name updated successfully",
+    user,
+  });
+});
 
 export const createTempAccountCtrl = asyncHandler(async (req, res) => {
   const { name, email } = req.body;

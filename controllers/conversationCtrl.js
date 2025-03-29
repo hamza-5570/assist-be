@@ -74,7 +74,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
       notifiedTo: user._id,
       notifiedBy: req.user.id,
       notificationType: "message",
-      content: `User ${recipient.name} with email ${recipient.email} has connected to the room.`,
+      content: `Guest ${recipient.name} wants to chat with you.`,
     });
   });
 

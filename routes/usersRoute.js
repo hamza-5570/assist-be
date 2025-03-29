@@ -10,7 +10,7 @@ import {
   getUsersForChatCtrl,
   toggleBanUserCtrl,
   handleSuspensionCtrl,
-  updateUserLocationAndContactCtrl,
+  updateUserCtrl,
   createTempAccountCtrl,
   logoutUserCtrl,
   addNewUserCtrl,
@@ -21,6 +21,7 @@ import {
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
 import validateRequestBody from "../middlewares/validationMiddleware.js";
+import upload from "../config/fileUpload.js";
 
 const userRoutes = express.Router();
 
@@ -39,10 +40,11 @@ userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", getUsersForChatCtrl);
 userRoutes.put("/toggle-ban", verifyToken, toggleBanUserCtrl);
 userRoutes.put("/handle-suspension", verifyToken, handleSuspensionCtrl);
-userRoutes.post(
-  "/update-location-contact",
+userRoutes.put(
+  "/update-user",
+  upload.single("profileImage"),
   verifyToken,
-  updateUserLocationAndContactCtrl
+  updateUserCtrl
 );
 userRoutes.post(
   "/create-temporary-account",
