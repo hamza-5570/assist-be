@@ -1,6 +1,8 @@
 import asyncHandler from "express-async-handler";
 import Conversation from "../model/Conversation.js";
 import Message from "../model/Message.js";
+import User from "../model/User.js";
+import Notification from "../model/Notification.js";
 
 export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   const { recipientId } = req.body;
@@ -15,8 +17,6 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   const userId = ["admin", "super_admin", "moderator"].includes(req.user.role)
     ? req.user.id
     : null;
-
-  console.log("userId:", userId);
 
   if (userId) {
     const existingConversation = await Conversation.findOne({
@@ -64,6 +64,20 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     recipients: [userId, recipientId],
   });
 
+  const recipient = await User.findById(recipientId);
+
+  const rolesToNotify = ["admin", "super_admin", "moderator"];
+  const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+
+  usersToNotify.forEach(async (user) => {
+    await Notification.create({
+      notifiedTo: user._id,
+      notifiedBy: req.user.id,
+      notificationType: "message",
+      content: `User ${recipient.name} with email ${recipient.email} has connected to the room.`,
+    });
+  });
+
   res.status(201).json({
     status: "success",
     message: "Conversation created successfully",
@@ -107,7 +121,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
     deliveredAt: new Date(),
   });
 
-  // Update unread message count
   conversation.unreadMessages = conversation.recipients
     .filter((user) => user.toString() !== req.user.id.toString())
     .map((user) => ({
