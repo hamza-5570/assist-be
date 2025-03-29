@@ -8,19 +8,14 @@ const MessageSchema = new Schema(
       ref: "User",
       required: true,
     },
-    receiverId: {
-      type: [mongoose.Schema.Types.ObjectId],
-      ref: "User",
-      default: [],
-    },
+    receiverId: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     text: { type: String },
     attachments: { type: [String] },
-
-    orderReference: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
-      default: null,
-    },
     orderReference: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",

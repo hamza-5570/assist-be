@@ -3,6 +3,7 @@ import Message from "../model/Message.js";
 import Conversation from "../model/Conversation.js";
 import GroupConversation from "../model/GroupConversation.js";
 import Notification from "../model/Notification.js";
+import mongoose from "mongoose";
 
 export const sendMessageCtrl = asyncHandler(async (req, res) => {
   const {
@@ -20,10 +21,6 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
   let attachments = req.files ? req.files.map((file) => file.path) : [];
 
-  if (!receiverId && !groupId) {
-    throw new Error("Receiver or Group ID is required.");
-  }
-
   let order = null;
   if (orderReference) {
     order = await Order.findById(orderReference);
@@ -34,12 +31,16 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
   const message = await Message.create({
     senderId: req.user.id,
-    receiverId: receiverId ? [receiverId] : [],
+    receiverId: Array.isArray(receiverId)
+      ? receiverId.map((id) => new mongoose.Types.ObjectId(id))
+      : receiverId
+      ? [new mongoose.Types.ObjectId(receiverId)]
+      : [],
     text,
     attachments,
     conversationId: conversationId || null,
     orderReference: orderReference || null,
-    orderReference: orderId || null,
+    orderId: orderId || null,
     orderProductName: orderProductName || (order ? order.productName : null),
     orderTotalPrice: orderTotalPrice || (order ? order.totalPrice : null),
     orderProductImage:
