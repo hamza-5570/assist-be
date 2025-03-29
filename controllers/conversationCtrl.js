@@ -18,6 +18,16 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     ? req.user.id
     : null;
 
+  const recipient = await User.findById(recipientId);
+  if (!recipient) {
+    return res.status(404).json({
+      status: "error",
+      message: "Recipient not found",
+    });
+  }
+
+  const recipientName = recipient.name;
+
   if (userId) {
     const existingConversation = await Conversation.findOne({
       recipients: { $all: [null, recipientId] },
@@ -35,6 +45,29 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
           arrayFilters: [{ nullRecipient: null }],
         }
       );
+
+      const rolesToNotify = ["admin", "super_admin", "moderator"];
+      const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+
+      const notifications = await Notification.find({
+        notifiedTo: { $in: usersToNotify.map((user) => user._id) },
+        notificationType: "customer_request",
+        content: `Guest ${recipientName} wants to chat with you.`,
+      });
+
+      notifications.forEach(async (notification) => {
+        if (notification.notifiedTo.toString() === userId.toString()) {
+          await Notification.updateOne(
+            { _id: notification._id },
+            { $set: { isAccepted: true } }
+          );
+        } else {
+          await Notification.updateOne(
+            { _id: notification._id },
+            { $set: { isAccepted: false } }
+          );
+        }
+      });
 
       const updatedConversation = await Conversation.findOne({
         _id: existingConversation._id,
@@ -64,8 +97,6 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     recipients: [userId, recipientId],
   });
 
-  const recipient = await User.findById(recipientId);
-
   const rolesToNotify = ["admin", "super_admin", "moderator"];
   const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
@@ -73,8 +104,8 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     await Notification.create({
       notifiedTo: user._id,
       notifiedBy: req.user.id,
-      notificationType: "message",
-      content: `Guest ${recipient.name} wants to chat with you.`,
+      notificationType: "customer_request",
+      content: `Guest ${recipientName} wants to chat with you.`,
     });
   });
 

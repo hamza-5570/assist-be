@@ -160,3 +160,30 @@ export const notifyOrderUpdateCtrl = asyncHandler(async (req, res) => {
     message: "Order update notification sent",
   });
 });
+
+export const updateNotificationStatusCtrl = asyncHandler(async (req, res) => {
+  const { notificationId } = req.body;
+
+  if (!notificationId) {
+    return res.status(400).json({
+      status: "error",
+      message: "Notification ID is required",
+    });
+  }
+
+  const notification = await Notification.findById(notificationId);
+  if (!notification) {
+    return res.status(404).json({
+      status: "error",
+      message: "Notification not found",
+    });
+  }
+
+  notification.isAccepted = false;
+  await notification.save();
+
+  res.json({
+    status: "success",
+    message: "Notification status updated successfully",
+  });
+});

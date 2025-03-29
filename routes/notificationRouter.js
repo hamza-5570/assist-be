@@ -10,6 +10,7 @@ import {
   notifyNewMessageCtrl,
   notifyNewCallCtrl,
   notifyOrderUpdateCtrl,
+  updateNotificationStatusCtrl,
 } from "../controllers/notificationCtrl.js";
 
 const notificationsRouter = express.Router();
@@ -47,5 +48,7 @@ notificationsRouter.post("/new-message", verifyToken, notifyNewMessageCtrl);
 notificationsRouter.post("/new-call", verifyToken, notifyNewCallCtrl);
 
 notificationsRouter.post("/order-update", verifyToken, notifyOrderUpdateCtrl);
+
+notificationsRouter.put("/update-status", updateNotificationStatusCtrl);
 
 export default notificationsRouter;
