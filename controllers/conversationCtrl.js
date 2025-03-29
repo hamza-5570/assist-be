@@ -29,7 +29,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 
   let existingConversation = await Conversation.findOne({
     recipients: recipientId,
-  }).populate("recipients", "name email");
+  }).populate("recipients", "name email role");
 
   if (existingConversation) {
     const recipientStrings = existingConversation.recipients.map((r) =>
