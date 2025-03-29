@@ -54,6 +54,16 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
         );
       }
 
+      await Message.updateMany(
+        {
+          conversationId: existingConversation._id,
+          receiverId: oldReceiverId,
+        },
+        {
+          $set: { receiverId: userId },
+        }
+      );
+
       const rolesToNotify = ["admin", "super_admin", "moderator"];
       const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
