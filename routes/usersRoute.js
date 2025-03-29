@@ -40,7 +40,7 @@ userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", getUsersForChatCtrl);
 userRoutes.put("/toggle-ban", verifyToken, toggleBanUserCtrl);
 userRoutes.put("/handle-suspension", verifyToken, handleSuspensionCtrl);
-userRoutes.post(
+userRoutes.put(
   "/update-user",
   upload.single("profileImage"),
   verifyToken,

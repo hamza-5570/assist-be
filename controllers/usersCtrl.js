@@ -255,7 +255,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } }).select(
-      "name email isOnline isBanned isSuspended"
+      "name email isOnline isBanned isSuspended role"
     );
 
     res.json(users);
