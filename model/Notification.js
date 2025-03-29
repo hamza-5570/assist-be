@@ -32,6 +32,7 @@ const NotificationSchema = new Schema(
         "chat_transfer",
         "blocked_user",
         "group_invite",
+        "customer_request",
       ],
       required: true,
     },
@@ -45,6 +46,10 @@ const NotificationSchema = new Schema(
     },
     readAt: {
       type: Date,
+      default: null,
+    },
+    isAccepted: {
+      type: Boolean,
       default: null,
     },
     sentAt: { type: Date, default: Date.now },
