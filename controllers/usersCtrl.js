@@ -171,7 +171,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 });
 
 export const logoutUserCtrl = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user);
+  const user = await User.findById(req.user.id);
 
   if (!user) {
     throw new Error("User not found");
@@ -405,6 +405,7 @@ export const createTempAccountCtrl = asyncHandler(async (req, res) => {
     name,
     email,
     isTemporary: true,
+    isOnline: true,
   });
 
   const token = generateToken(newUser._id);
