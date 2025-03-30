@@ -3,7 +3,8 @@ import User from "../model/User.js";
 
 export const verifyToken = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    let token = req.headers.authorization?.split(" ")[1] || req.query.token;
+
     if (!token) {
       return res
         .status(401)
@@ -11,10 +12,23 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_KEY);
-    req.user = decoded;
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    const user = await User.findById(decoded.id || decoded._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (user.isBanned) {
+      return res
+        .status(403)
+        .json({ message: "Account banned. Please contact support." });
+    }
+
+    if (user.isSuspended && new Date(user.suspensionExpiryDate) > new Date()) {
+      return res.status(403).json({
+        message: `Account suspended until ${user.suspensionExpiryDate.toLocaleString()}`,
+      });
+    }
 
     req.user = user;
     next();

@@ -126,8 +126,8 @@ export const checkoutCtrl = asyncHandler(async (req, res) => {
   const session = await stripe.checkout.sessions.create({
     line_items: lineItems,
     mode: "payment",
-    success_url: `${process.env.FRONTEND}/user/orders`,
-    cancel_url: `${process.env.FRONTEND}/user/orders`,
+    success_url: `${process.env.FRONTEND}/chat`,
+    cancel_url: `${process.env.FRONTEND}/chat`,
     metadata: { orderId: orderId },
   });
 
@@ -139,7 +139,9 @@ export const getAllOrdersCtrl = asyncHandler(async (req, res) => {
     throw new Error("Unauthorized access");
   }
 
-  const orders = await Order.find().populate("customerReference", "name email");
+  const orders = await Order.find()
+    .populate("customerReference", "name email")
+    .sort({ createdAt: -1 });
 
   res.json({
     status: "success",

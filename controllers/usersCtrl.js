@@ -88,6 +88,14 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email });
 
+  if (user.googleId && !user.password) {
+    return res.status(400).json({
+      status: "error",
+      message:
+        "This account was created with Google. Please use Google Sign-In.",
+    });
+  }
+
   if (user && (await bcrypt.compare(password, user.password))) {
     if (user.isBanned) {
       throw new Error("Your account is banned. Please contact support.");
