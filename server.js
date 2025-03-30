@@ -19,6 +19,9 @@ import conversationsRouter from "./routes/conversationRouter.js";
 import messageRouter from "./routes/messageRouter.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import ordersRouter from "./routes/ordersRouter.js";
+import passport from "passport";
+import session from "express-session";
+import configurePassport from "./config/passport.js";
 
 dotenv.config();
 
@@ -92,6 +95,10 @@ app.use("/api/orders/", ordersRouter);
 app.use("/api/conversations/", conversationsRouter);
 app.use("/api/messages/", messageRouter);
 app.use("/api/notifications/", notificationRouter);
+configurePassport();
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(notFound);
 app.use(globalErrhandler);
