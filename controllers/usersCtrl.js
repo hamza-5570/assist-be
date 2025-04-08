@@ -523,3 +523,51 @@ export const updatePasswordByIdCtrl = asyncHandler(async (req, res) => {
     message: "Password updated successfully",
   });
 });
+
+export const addNewMember = asyncHandler(async (req, res) => {
+  const { name, email, role } = req.body;
+
+  const validRoles = ["super_admin", "admin", "moderator"];
+  if (!validRoles.includes(role)) {
+    throw new Error("Invalid role assigned");
+  }
+
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    existingUser.role = role;
+    await existingUser.save();
+
+    return res.status(200).json({
+      status: "success",
+      message: "User role updated successfully",
+      data: existingUser,
+    });
+  }
+
+  const randomPassword = randomBytes(8).toString("hex");
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+  const newUser = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+    role,
+    isVerified: true,
+  });
+
+  await sendMail(
+    email,
+    "Assist - Account Created",
+    `Hello ${name},<br><br>Welcome! Here are your account details:<br><br><strong>Email:</strong> ${email}<br><strong>Password:</strong> ${randomPassword}<br><strong>Role:</strong> ${role}<br><br>Please keep this information safe.`
+  );
+
+  res.status(201).json({
+    status: "success",
+    message: "User added successfully",
+    data: newUser,
+    password: randomPassword,
+  });
+});

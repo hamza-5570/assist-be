@@ -17,6 +17,7 @@ import {
   getUserByIdCtrl,
   deleteUserByIdCtrl,
   updatePasswordByIdCtrl,
+  addNewMember,
 } from "../controllers/usersCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -57,6 +58,11 @@ userRoutes.post(
   "/admin-register",
   validateRequestBody(userValidation),
   addNewUserCtrl
+);
+userRoutes.post(
+  "/admin-member",
+  validateRequestBody(userValidation),
+  addNewMember
 );
 userRoutes.get("/user/:id", verifyToken, getUserByIdCtrl);
 userRoutes.delete(
