@@ -263,7 +263,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } })
-      .select("name email isOnline isBanned isSuspended role")
+      .select("name email isOnline isBanned isSuspended role profileImage")
       .sort({ _id: -1 });
 
     res.json(users);
