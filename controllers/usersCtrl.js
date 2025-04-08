@@ -357,7 +357,8 @@ export const handleSuspensionCtrl = asyncHandler(async (req, res) => {
 });
 
 export const updateUserCtrl = asyncHandler(async (req, res) => {
-  const { userId, name, country, city, phoneNumber, postalCode } = req.body;
+  const { userId, name, country, city, phoneNumber, postalCode, role } =
+    req.body;
 
   let profileImageUrl = null;
 
@@ -380,11 +381,15 @@ export const updateUserCtrl = asyncHandler(async (req, res) => {
   user.phoneNumber = phoneNumber || user.phoneNumber;
   user.postalCode = postalCode || user.postalCode;
 
+  if (role) {
+    user.role = role;
+  }
+
   await user.save();
 
   res.json({
     status: "success",
-    message: "User location, contact details, and name updated successfully",
+    message: "User updated successfully",
     user,
   });
 });
@@ -544,7 +549,7 @@ export const updatePasswordByIdCtrl = asyncHandler(async (req, res) => {
 export const addNewMember = asyncHandler(async (req, res) => {
   const { name, email, role } = req.body;
 
-  const validRoles = ["super_admin", "admin", "moderator"];
+  const validRoles = ["admin", "moderator"];
   if (!validRoles.includes(role)) {
     throw new Error("Invalid role assigned");
   }
