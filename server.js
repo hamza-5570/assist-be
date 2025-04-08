@@ -38,20 +38,6 @@ const app = express();
 //Connect to MongoDB
 dbConnect();
 
-//Miscellaneous
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public"));
-app.use(morgan("tiny"));
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
 //Stripe Webhook
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
@@ -101,9 +87,19 @@ app.post(
   }
 );
 
-//Global Error Handler Middleware
-app.use(notFound);
-app.use(globalErrhandler);
+//Miscellaneous
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
+app.use(morgan("tiny"));
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 //Routes
 app.use("/api/users/", userRoutes);
@@ -117,6 +113,10 @@ app.use("/api/group-conversations/", groupConversationsRouter);
 configurePassport();
 app.use(passport.initialize());
 app.use(passport.session());
+
+//Global Error Handler Middleware
+app.use(notFound);
+app.use(globalErrhandler);
 
 //HTTP server
 const PORT = process.env.PORT || 3000;
