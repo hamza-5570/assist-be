@@ -18,6 +18,8 @@ import {
   deleteUserByIdCtrl,
   updatePasswordByIdCtrl,
   addNewMember,
+  inviteUser,
+  deleteMultipleUsersByIdCtrl,
 } from "../controllers/usersCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -41,8 +43,18 @@ userRoutes.post("/reset-password", resetPassword);
 userRoutes.post("/logout", verifyToken, logoutUserCtrl);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", verifyToken, getUsersForChatCtrl);
-userRoutes.put("/toggle-ban", verifyToken, toggleBanUserCtrl);
-userRoutes.put("/handle-suspension", verifyToken, handleSuspensionCtrl);
+userRoutes.put(
+  "/toggle-ban",
+  verifyToken,
+  checkRole(["admin", "super_admin", "moderator"]),
+  toggleBanUserCtrl
+);
+userRoutes.put(
+  "/handle-suspension",
+  verifyToken,
+  checkRole(["admin", "super_admin", "moderator"]),
+  handleSuspensionCtrl
+);
 userRoutes.put(
   "/update-user",
   upload.single("profileImage"),
@@ -57,19 +69,32 @@ userRoutes.post(
 userRoutes.post(
   "/admin-register",
   validateRequestBody(userValidation),
+  checkRole(["admin", "super_admin", "moderator"]),
   addNewUserCtrl
 );
 userRoutes.post(
   "/admin-member",
   validateRequestBody(userValidation),
+  checkRole(["admin", "super_admin", "moderator"]),
   addNewMember
+);
+userRoutes.post(
+  "/admin-invite",
+  checkRole(["admin", "super_admin", "moderator"]),
+  inviteUser
 );
 userRoutes.get("/user/:id", verifyToken, getUserByIdCtrl);
 userRoutes.delete(
   "/user/:id",
   verifyToken,
-  checkRole(["admin", "super_admin"]),
+  checkRole(["admin", "super_admin", "moderator"]),
   deleteUserByIdCtrl
+);
+userRoutes.delete(
+  "/users",
+  verifyToken,
+  checkRole(["admin", "super_admin", "moderator"]),
+  deleteMultipleUsersByIdCtrl
 );
 userRoutes.put("/user/update-password", verifyToken, updatePasswordByIdCtrl);
 userRoutes.get(

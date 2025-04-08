@@ -1,3 +1,4 @@
+//Module Imports
 import http from "http";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -5,31 +6,53 @@ import morgan from "morgan";
 import Stripe from "stripe";
 import express from "express";
 import path from "path";
+import { Server } from "socket.io";
+import { fileURLToPath } from "url";
+import passport from "passport";
+import session from "express-session";
+
+//Tool Imports
 import dbConnect from "./config/dbConnect.js";
 import { globalErrhandler, notFound } from "./middlewares/globalErrHandler.js";
-import userRoutes from "./routes/usersRoute.js";
+import configurePassport from "./config/passport.js";
+
+//Model Imports
 import Order from "./model/Order.js";
-import { Server } from "socket.io";
 import Message from "./model/Message.js";
-import Notification from "./model/Notification.js";
-import Call from "./model/Call.js";
 import User from "./model/User.js";
-import { fileURLToPath } from "url";
+
+//Route Imports
 import conversationsRouter from "./routes/conversationRouter.js";
+import groupConversationsRouter from "./routes/groupConversationRouter.js";
 import messageRouter from "./routes/messageRouter.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import ordersRouter from "./routes/ordersRouter.js";
-import passport from "passport";
-import session from "express-session";
-import configurePassport from "./config/passport.js";
+import userRoutes from "./routes/usersRoute.js";
 
+//To Allow using env files
 dotenv.config();
 
+//Express App
 const app = express();
+
+//Connect to MongoDB
 dbConnect();
 
+//Miscellaneous
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
+app.use(morgan("tiny"));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+//Stripe Webhook
 const stripe = new Stripe(process.env.STRIPE_KEY);
 
 const endpointSecret = process.env.ENDPOINT;
@@ -78,34 +101,28 @@ app.post(
   }
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public"));
-app.use(morgan("tiny"));
+//Global Error Handler Middleware
+app.use(notFound);
+app.use(globalErrhandler);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
+//Routes
 app.use("/api/users/", userRoutes);
 app.use("/api/orders/", ordersRouter);
 app.use("/api/conversations/", conversationsRouter);
 app.use("/api/messages/", messageRouter);
 app.use("/api/notifications/", notificationRouter);
-configurePassport();
+app.use("/api/group-conversations/", groupConversationsRouter);
 
+//For Login with Google
+configurePassport();
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use(notFound);
-app.use(globalErrhandler);
-
+//HTTP server
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
+//Sockets
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -281,10 +298,7 @@ io.on("connection", (socket) => {
   });
 });
 
+//Listening to Server
 server.listen(PORT, () =>
   console.log(`Server is up and running on port ${PORT}`)
 );
-
-// server.listen(PORT, "0.0.0.0", () => {
-//   console.log(`Server is running on http://0.0.0.0:${PORT}`);
-// });

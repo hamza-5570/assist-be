@@ -499,6 +499,21 @@ export const deleteUserByIdCtrl = asyncHandler(async (req, res) => {
   });
 });
 
+export const deleteMultipleUsersByIdCtrl = asyncHandler(async (req, res) => {
+  const { userIds } = req.body;
+
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ message: "No userIds provided" });
+  }
+
+  const result = await User.deleteMany({ _id: { $in: userIds } });
+
+  res.json({
+    status: "success",
+    message: `${result.deletedCount} user(s) deleted successfully`,
+  });
+});
+
 export const updatePasswordByIdCtrl = asyncHandler(async (req, res) => {
   const { userId, oldPassword, newPassword } = req.body;
 
@@ -569,5 +584,25 @@ export const addNewMember = asyncHandler(async (req, res) => {
     message: "User added successfully",
     data: newUser,
     password: randomPassword,
+  });
+});
+
+export const inviteUser = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    return res.status(400).json({ message: "User already exists" });
+  }
+
+  await sendMail(
+    email,
+    "Assist - Account Invitation",
+    `Hello,<br><br>You have been invited to join Assist! Here you can register your account:<br><br>Please click the link below to register:<br><a href="${process.env.FRONTEND}/signup">Register Here</a><br><br>Best regards,<br>The Assist Team`
+  );
+
+  res.status(201).json({
+    status: "success",
+    message: "User invited successfully",
   });
 });
