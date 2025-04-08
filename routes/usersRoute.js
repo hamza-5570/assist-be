@@ -20,6 +20,7 @@ import {
   addNewMember,
   inviteUser,
   deleteMultipleUsersByIdCtrl,
+  importUsers,
 } from "../controllers/usersCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -27,6 +28,7 @@ import validateRequestBody from "../middlewares/validationMiddleware.js";
 import upload from "../config/fileUpload.js";
 import passport from "passport";
 import generateToken from "../utils/generateToken.js";
+import uploadLocal from "../config/localUpload.js";
 
 const userRoutes = express.Router();
 
@@ -43,18 +45,8 @@ userRoutes.post("/reset-password", resetPassword);
 userRoutes.post("/logout", verifyToken, logoutUserCtrl);
 userRoutes.get("/profile", verifyToken, getUserProfileCtrl);
 userRoutes.get("/users", verifyToken, getUsersForChatCtrl);
-userRoutes.put(
-  "/toggle-ban",
-  verifyToken,
-  checkRole(["admin", "super_admin", "moderator"]),
-  toggleBanUserCtrl
-);
-userRoutes.put(
-  "/handle-suspension",
-  verifyToken,
-  checkRole(["admin", "super_admin", "moderator"]),
-  handleSuspensionCtrl
-);
+userRoutes.put("/toggle-ban", verifyToken, toggleBanUserCtrl);
+userRoutes.put("/handle-suspension", verifyToken, handleSuspensionCtrl);
 userRoutes.put(
   "/update-user",
   upload.single("profileImage"),
@@ -69,33 +61,17 @@ userRoutes.post(
 userRoutes.post(
   "/admin-register",
   validateRequestBody(userValidation),
-  checkRole(["admin", "super_admin", "moderator"]),
   addNewUserCtrl
 );
 userRoutes.post(
   "/admin-member",
   validateRequestBody(userValidation),
-  checkRole(["admin", "super_admin", "moderator"]),
   addNewMember
 );
-userRoutes.post(
-  "/admin-invite",
-  checkRole(["admin", "super_admin", "moderator"]),
-  inviteUser
-);
+userRoutes.post("/admin-invite", inviteUser);
 userRoutes.get("/user/:id", verifyToken, getUserByIdCtrl);
-userRoutes.delete(
-  "/user/:id",
-  verifyToken,
-  checkRole(["admin", "super_admin", "moderator"]),
-  deleteUserByIdCtrl
-);
-userRoutes.delete(
-  "/users",
-  verifyToken,
-  checkRole(["admin", "super_admin", "moderator"]),
-  deleteMultipleUsersByIdCtrl
-);
+userRoutes.delete("/user/:id", verifyToken, deleteUserByIdCtrl);
+userRoutes.post("/users", verifyToken, deleteMultipleUsersByIdCtrl);
 userRoutes.put("/user/update-password", verifyToken, updatePasswordByIdCtrl);
 userRoutes.get(
   "/auth/google",
@@ -143,6 +119,12 @@ userRoutes.get(
       )}`
     );
   }
+);
+userRoutes.post(
+  "/import-users",
+  uploadLocal.single("file"),
+  verifyToken,
+  importUsers
 );
 
 export default userRoutes;
