@@ -7,6 +7,8 @@ import sendMail from "../utils/Emails.js";
 import generateOTP from "../utils/GenerateOtp.js";
 import PasswordResetToken from "../model/PasswordResetToken.js";
 import { randomBytes } from "crypto";
+import fs from "fs";
+import csv from "csv-parser";
 
 export const registerUserCtrl = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -606,3 +608,89 @@ export const inviteUser = asyncHandler(async (req, res) => {
     message: "User invited successfully",
   });
 });
+
+export const importUsers = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const results = [];
+
+    const filePath = req.file.path;
+
+    fs.createReadStream(filePath)
+      .pipe(csv())
+      .on("data", (data) => {
+        results.push(data);
+      })
+      .on("end", async () => {
+        const importedUsers = [];
+
+        for (const userData of results) {
+          const {
+            name,
+            email,
+            password,
+            googleId,
+            role,
+            socketId,
+            isVerified,
+            isBanned,
+            isSuspended,
+            suspensionExpiryDate,
+            country,
+            city,
+            phoneNumber,
+            postalCode,
+            isTemporary,
+            profileImage,
+          } = userData;
+
+          if (!email || !name) continue;
+
+          const userFields = {
+            name,
+            email,
+            password,
+            googleId,
+            role,
+            socketId,
+            country,
+            city,
+            phoneNumber,
+            postalCode,
+            isTemporary: isTemporary === "true" || isTemporary === true,
+            profileImage,
+            isVerified: isVerified === "true" || isVerified === true,
+            isBanned: isBanned === "true" || isBanned === true,
+            isSuspended: isSuspended === "true" || isSuspended === true,
+            suspensionExpiryDate: suspensionExpiryDate
+              ? new Date(suspensionExpiryDate)
+              : null,
+          };
+
+          const existingUser = await User.findOne({ email });
+
+          if (existingUser) {
+            await User.updateOne({ _id: existingUser._id }, userFields);
+          } else {
+            await User.create(userFields);
+          }
+
+          importedUsers.push(email);
+        }
+
+        // Delete file after import
+        fs.unlinkSync(filePath);
+
+        res.status(200).json({
+          message: "Users imported successfully",
+          importedCount: importedUsers.length,
+        });
+      });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server Error" });
+  }
+};

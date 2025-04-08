@@ -20,6 +20,7 @@ import {
   addNewMember,
   inviteUser,
   deleteMultipleUsersByIdCtrl,
+  importUsers,
 } from "../controllers/usersCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -27,6 +28,7 @@ import validateRequestBody from "../middlewares/validationMiddleware.js";
 import upload from "../config/fileUpload.js";
 import passport from "passport";
 import generateToken from "../utils/generateToken.js";
+import uploadLocal from "../config/localUpload.js";
 
 const userRoutes = express.Router();
 
@@ -90,7 +92,7 @@ userRoutes.delete(
   checkRole(["admin", "super_admin", "moderator"]),
   deleteUserByIdCtrl
 );
-userRoutes.delete(
+userRoutes.post(
   "/users",
   verifyToken,
   checkRole(["admin", "super_admin", "moderator"]),
@@ -143,6 +145,13 @@ userRoutes.get(
       )}`
     );
   }
+);
+userRoutes.post(
+  "/import-users",
+  uploadLocal.single("file"),
+  verifyToken,
+  checkRole(["admin", "super_admin", "moderator"]),
+  importUsers
 );
 
 export default userRoutes;
