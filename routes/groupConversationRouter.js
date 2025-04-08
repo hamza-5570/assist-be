@@ -12,7 +12,7 @@ import {
   archiveGroupConversationCtrl,
   deleteGroupConversationCtrl,
   typingInGroupCtrl,
-} from "../controllers/groupConversationsCtrl.js";
+} from "../controllers/groupConversationCtrl.js";
 
 const groupConversationsRouter = express.Router();
 
