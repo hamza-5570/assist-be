@@ -1,6 +1,6 @@
 import asyncHandler from "express-async-handler";
-import { GroupConversation } from "../model/GroupConversation.js";
-import { Message } from "../model/Message.js";
+import GroupConversation from "../model/GroupConversation.js";
+import Message from "../model/Message.js";
 
 export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
   const { group_title, description, group_members, group_image } = req.body;
