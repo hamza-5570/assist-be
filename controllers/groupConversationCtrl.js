@@ -50,14 +50,11 @@ export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
     group_members: req.user.id,
   })
     .populate("group_members", "name email")
-    .populate("lastMessage")
-    .populate("group_admin", "name email")
-    .sort({ updatedAt: -1 });
+    .populate("lastMessage");
 
   res.json({
     status: "success",
     message: "Group conversations fetched successfully",
-    count: groups.length,
     data: groups,
   });
 });
@@ -84,6 +81,7 @@ export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
     deliveredAt: new Date(),
   });
 
+  // Update unread message count
   group.unread_messages = group.group_members
     .filter((user) => user.toString() !== req.user.id.toString())
     .map((user) => ({
