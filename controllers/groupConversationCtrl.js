@@ -3,16 +3,27 @@ import GroupConversation from "../model/GroupConversation.js";
 import Message from "../model/Message.js";
 
 export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
-  const { group_title, description, group_members, group_image } = req.body;
+  const {
+    group_title,
+    description,
+    group_members = [],
+    group_image,
+  } = req.body;
 
-  if (!group_members.includes(req.user.id)) {
-    throw new Error("You must be part of the group to create it.");
+  // Validate inputs
+  if (!group_title || group_title.trim() === "") {
+    return res.status(400).json({
+      status: "error",
+      message: "Group title is required",
+    });
   }
+
+  const uniqueMembers = Array.from(new Set([...group_members, req.user.id]));
 
   const groupConversation = await GroupConversation.create({
     group_title,
     description,
-    group_members,
+    group_members: uniqueMembers,
     group_admin: req.user.id,
     group_image,
   });
@@ -29,11 +40,14 @@ export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
     group_members: req.user.id,
   })
     .populate("group_members", "name email")
-    .populate("lastMessage");
+    .populate("lastMessage")
+    .populate("group_admin", "name email")
+    .sort({ updatedAt: -1 });
 
   res.json({
     status: "success",
     message: "Group conversations fetched successfully",
+    count: groups.length,
     data: groups,
   });
 });
@@ -60,7 +74,6 @@ export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
     deliveredAt: new Date(),
   });
 
-  // Update unread message count
   group.unread_messages = group.group_members
     .filter((user) => user.toString() !== req.user.id.toString())
     .map((user) => ({
