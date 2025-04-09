@@ -3,19 +3,40 @@ import GroupConversation from "../model/GroupConversation.js";
 import Message from "../model/Message.js";
 
 export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
-  const { group_title, description, group_members, group_image } = req.body;
+  const {
+    group_title,
+    description,
+    group_members = [],
+    group_image,
+  } = req.body;
 
-  if (!group_members.includes(req.user.id)) {
-    throw new Error("You must be part of the group to create it.");
+  if (!group_title || group_title.trim() === "") {
+    return res.status(400).json({
+      status: "error",
+      message: "Group title is required",
+    });
   }
+
+  const uniqueMembers = Array.from(new Set([...group_members, req.user.id]));
 
   const groupConversation = await GroupConversation.create({
     group_title,
     description,
-    group_members,
+    group_members: uniqueMembers,
     group_admin: req.user.id,
     group_image,
   });
+
+  const messages = await Message.create({
+    senderId: req.user.id,
+    receiverId: uniqueMembers,
+    text: `Welcome to the group ${group_title}`,
+    conversationId: groupConversation._id,
+    deliveredAt: new Date(),
+  });
+
+  groupConversation.messages.push(messages._id);
+  await groupConversation.save();
 
   res.status(201).json({
     status: "success",
