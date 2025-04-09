@@ -10,7 +10,6 @@ export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
     group_image,
   } = req.body;
 
-  // Validate inputs
   if (!group_title || group_title.trim() === "") {
     return res.status(400).json({
       status: "error",
@@ -27,6 +26,17 @@ export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
     group_admin: req.user.id,
     group_image,
   });
+
+  const messages = await Message.create({
+    senderId: req.user.id,
+    receiverId: uniqueMembers,
+    text: `Welcome to the group ${group_title}`,
+    conversationId: groupConversation._id,
+    deliveredAt: new Date(),
+  });
+
+  groupConversation.messages.push(messages._id);
+  await groupConversation.save();
 
   res.status(201).json({
     status: "success",
