@@ -27,15 +27,20 @@ export const createGroupConversationCtrl = asyncHandler(async (req, res) => {
     group_image,
   });
 
-  const messages = await Message.create({
-    senderId: req.user.id,
-    receiverId: uniqueMembers,
-    text: `Welcome to the group ${group_title}`,
-    conversationId: groupConversation._id,
-    deliveredAt: new Date(),
-  });
+  const messagePromises = uniqueMembers.map((memberId) =>
+    Message.create({
+      senderId: memberId,
+      receiverId: uniqueMembers,
+      text: `Welcome to the group ${group_title}`,
+      conversationId: groupConversation._id,
+      deliveredAt: new Date(),
+    })
+  );
 
-  groupConversation.messages.push(messages._id);
+  const messages = await Promise.all(messagePromises);
+
+  const messageIds = messages.map((msg) => msg._id);
+  groupConversation.messages.push(...messageIds);
   await groupConversation.save();
 
   res.status(201).json({
@@ -49,16 +54,24 @@ export const getUserGroupConversationsCtrl = asyncHandler(async (req, res) => {
   const groups = await GroupConversation.find({
     group_members: req.user.id,
   })
-    .populate("group_members", "name email")
+    .populate("group_members")
     .populate("lastMessage")
-    .populate("group_admin", "name email")
+    .populate("group_admin")
     .sort({ updatedAt: -1 });
+
+  const updatedGroups = groups.map((group) => {
+    const filteredMembers = group.group_members.filter(
+      (member) => member._id.toString() !== req.user.id.toString()
+    );
+    group.group_members = filteredMembers;
+    return group;
+  });
 
   res.json({
     status: "success",
     message: "Group conversations fetched successfully",
-    count: groups.length,
-    data: groups,
+    count: updatedGroups.length,
+    data: updatedGroups,
   });
 });
 

@@ -9,6 +9,9 @@ import PasswordResetToken from "../model/PasswordResetToken.js";
 import { randomBytes } from "crypto";
 import fs from "fs";
 import csv from "csv-parser";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_KEY);
 
 export const registerUserCtrl = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -62,6 +65,13 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     email,
     password: hashedPassword,
   });
+
+  const stripeCustomer = await stripe.customers.create({
+    email: user.email,
+    name: user.name,
+  });
+  user.stripeCustomerId = stripeCustomer.id;
+  await user.save();
 
   const otp = generateOTP();
   const hashedOtp = await bcrypt.hash(otp, 10);
@@ -461,6 +471,13 @@ export const addNewUserCtrl = asyncHandler(async (req, res) => {
     isVerified: true,
   });
 
+  const stripeCustomer = await stripe.customers.create({
+    email: newUser.email,
+    name: newUser.name,
+  });
+  newUser.stripeCustomerId = stripeCustomer.id;
+  await newUser.save();
+
   await sendMail(
     email,
     "Assist - Account Created",
@@ -580,6 +597,13 @@ export const addNewMember = asyncHandler(async (req, res) => {
     isVerified: true,
   });
 
+  const stripeCustomer = await stripe.customers.create({
+    email: newUser.email,
+    name: newUser.name,
+  });
+  newUser.stripeCustomerId = stripeCustomer.id;
+  await newUser.save();
+
   await sendMail(
     email,
     "Assist - Account Created",
@@ -614,88 +638,67 @@ export const inviteUser = asyncHandler(async (req, res) => {
   });
 });
 
-export const importUsers = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-
-    const results = [];
-
-    const filePath = req.file.path;
-
-    fs.createReadStream(filePath)
-      .pipe(csv())
-      .on("data", (data) => {
-        results.push(data);
-      })
-      .on("end", async () => {
-        const importedUsers = [];
-
-        for (const userData of results) {
-          const {
-            name,
-            email,
-            password,
-            googleId,
-            role,
-            socketId,
-            isVerified,
-            isBanned,
-            isSuspended,
-            suspensionExpiryDate,
-            country,
-            city,
-            phoneNumber,
-            postalCode,
-            isTemporary,
-            profileImage,
-          } = userData;
-
-          if (!email || !name) continue;
-
-          const userFields = {
-            name,
-            email,
-            password,
-            googleId,
-            role,
-            socketId,
-            country,
-            city,
-            phoneNumber,
-            postalCode,
-            isTemporary: isTemporary === "true" || isTemporary === true,
-            profileImage,
-            isVerified: isVerified === "true" || isVerified === true,
-            isBanned: isBanned === "true" || isBanned === true,
-            isSuspended: isSuspended === "true" || isSuspended === true,
-            suspensionExpiryDate: suspensionExpiryDate
-              ? new Date(suspensionExpiryDate)
-              : null,
-          };
-
-          const existingUser = await User.findOne({ email });
-
-          if (existingUser) {
-            await User.updateOne({ _id: existingUser._id }, userFields);
-          } else {
-            await User.create(userFields);
-          }
-
-          importedUsers.push(email);
-        }
-
-        // Delete file after import
-        fs.unlinkSync(filePath);
-
-        res.status(200).json({
-          message: "Users imported successfully",
-          importedCount: importedUsers.length,
-        });
-      });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server Error" });
-  }
+const generateRandomPassword = () => {
+  return randomBytes(8).toString("hex");
 };
+
+export const importUsers = asyncHandler(async (req, res) => {
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).send({ message: "No file uploaded." });
+  }
+
+  const results = [];
+
+  fs.createReadStream(file.path)
+    .pipe(csvParser())
+    .on("data", (row) => {
+      results.push(row);
+    })
+    .on("end", async () => {
+      const users = [];
+
+      for (const row of results) {
+        const userData = {};
+
+        if (row.name) userData.name = row.name;
+        if (row.email) userData.email = row.email;
+
+        if (userData.name && userData.email) {
+          const randomPassword = generateRandomPassword();
+
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+          userData.password = hashedPassword;
+
+          try {
+            const newUser = new User(userData);
+            await newUser.save();
+
+            const emailSubject = "Welcome to Our Service";
+            const emailBody = `
+              <h1>Welcome, ${newUser.name}!</h1>
+              <p>Your account has been successfully created.</p>
+              <p>Your temporary password is: <strong>${randomPassword}</strong></p>
+            `;
+            await sendMail(newUser.email, emailSubject, emailBody);
+
+            users.push(newUser);
+          } catch (error) {
+            console.error(`Error creating user ${row.email}: ${error.message}`);
+          }
+        }
+      }
+
+      res.status(200).send({
+        message: `${users.length} users have been successfully imported.`,
+        users,
+      });
+    })
+    .on("error", (err) => {
+      console.error("Error reading CSV file:", err);
+      res.status(500).send({ message: "Error processing the file" });
+    });
+});

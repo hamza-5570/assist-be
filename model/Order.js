@@ -30,6 +30,39 @@ const OrderSchema = new Schema(
       enum: ["pending", "paid", "failed", "cancelled"],
       default: "pending",
     },
+    stripePaymentId: { type: String, default: null },
+    isSubscription: { type: Boolean, default: false },
+    subscriptionDetails: {
+      stripeSubscriptionId: { type: String, default: null },
+      stripePriceId: { type: String, default: null },
+      stripeProductId: { type: String, default: null },
+      billingInterval: {
+        type: String,
+        enum: ["month", "year"],
+        default: "month",
+      },
+      intervalCount: {
+        type: Number,
+        default: 1,
+      },
+      subscriptionStatus: {
+        type: String,
+        enum: [
+          "pending",
+          "active",
+          "past_due",
+          "canceled",
+          "cancelling",
+          "incomplete",
+        ],
+        default: "pending",
+      },
+      currentPeriodStart: { type: Date, default: null },
+      currentPeriodEnd: { type: Date, default: null },
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+      lastPaymentDate: { type: Date, default: null },
+      nextBillingDate: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

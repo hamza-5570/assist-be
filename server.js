@@ -60,30 +60,178 @@ app.post(
       return;
     }
 
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const { orderId } = session.metadata;
-      const paymentStatus = session.payment_status;
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        const { orderId, customerId } = session.metadata;
+        const paymentStatus = session.payment_status;
 
-      const order = await Order.findOneAndUpdate(
-        { orderId },
-        {
-          paymentStatus: paymentStatus,
-          status: paymentStatus === "paid" ? "Completed" : "Cancelled",
-        },
-        { new: true }
-      );
+        const order = await Order.findOne({ orderId });
+        if (!order) {
+          console.log("Order not found with orderId:", orderId);
+          break;
+        }
 
-      if (order) {
+        order.paymentStatus = paymentStatus;
+        order.stripePaymentId = session.id;
+
+        if (session.mode === "subscription" && order.isSubscription) {
+          order.subscriptionDetails.subscriptionStatus = "active";
+          order.subscriptionDetails.stripeSubscriptionId = session.subscription;
+
+          if (customerId) {
+            await User.findByIdAndUpdate(customerId, {
+              $push: {
+                activeSubscriptions: {
+                  subscriptionId: session.subscription,
+                  planName: order.productName,
+                  priceId: order.subscriptionDetails.stripePriceId,
+                  status: "active",
+                  currentPeriodEnd: null,
+                  cancelAtPeriodEnd: false,
+                },
+              },
+            });
+          }
+        } else {
+          order.status = paymentStatus === "paid" ? "Completed" : "Continuing";
+        }
+
+        await order.save();
         console.log("Order updated:", order);
-      } else {
-        console.log("Order not found with orderId:", orderId);
+        break;
       }
-    } else {
-      console.log("Unhandled event type:", event.type);
+
+      case "invoice.paid": {
+        const invoice = event.data.object;
+
+        if (invoice.subscription) {
+          const subscription = await stripe.subscriptions.retrieve(
+            invoice.subscription
+          );
+
+          const order = await Order.findOne({
+            "subscriptionDetails.stripeSubscriptionId": invoice.subscription,
+          });
+
+          if (order) {
+            order.subscriptionDetails.currentPeriodStart = new Date(
+              subscription.current_period_start * 1000
+            );
+            order.subscriptionDetails.currentPeriodEnd = new Date(
+              subscription.current_period_end * 1000
+            );
+            order.subscriptionDetails.lastPaymentDate = new Date();
+            order.subscriptionDetails.nextBillingDate = new Date(
+              subscription.current_period_end * 1000
+            );
+
+            await order.save();
+
+            await User.updateOne(
+              {
+                "activeSubscriptions.subscriptionId": invoice.subscription,
+              },
+              {
+                $set: {
+                  "activeSubscriptions.$.currentPeriodEnd": new Date(
+                    subscription.current_period_end * 1000
+                  ),
+                  "activeSubscriptions.$.status": subscription.status,
+                },
+              }
+            );
+
+            console.log("Subscription billing updated:", order.orderId);
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+
+        const orderUpdate = await Order.updateOne(
+          { "subscriptionDetails.stripeSubscriptionId": subscription.id },
+          {
+            $set: {
+              "subscriptionDetails.subscriptionStatus": subscription.status,
+              "subscriptionDetails.cancelAtPeriodEnd":
+                subscription.cancel_at_period_end,
+            },
+          }
+        );
+
+        const userUpdate = await User.updateOne(
+          { "activeSubscriptions.subscriptionId": subscription.id },
+          {
+            $set: {
+              "activeSubscriptions.$.status": subscription.status,
+              "activeSubscriptions.$.cancelAtPeriodEnd":
+                subscription.cancel_at_period_end,
+            },
+          }
+        );
+
+        console.log(
+          "Subscription updated:",
+          subscription.id,
+          orderUpdate.modifiedCount > 0,
+          userUpdate.modifiedCount > 0
+        );
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+
+        const order = await Order.findOne({
+          "subscriptionDetails.stripeSubscriptionId": subscription.id,
+        });
+
+        if (order) {
+          order.subscriptionDetails.subscriptionStatus = "canceled";
+          order.status = "Cancelled";
+          await order.save();
+
+          const user = await User.findOne({
+            "activeSubscriptions.subscriptionId": subscription.id,
+          });
+
+          if (user) {
+            const activeSubscription = user.activeSubscriptions.find(
+              (sub) => sub.subscriptionId === subscription.id
+            );
+
+            if (activeSubscription) {
+              user.subscriptionHistory.push({
+                subscriptionId: subscription.id,
+                planName: activeSubscription.planName,
+                status: "canceled",
+                startDate: new Date(subscription.start_date * 1000),
+                endDate: new Date(subscription.ended_at * 1000 || Date.now()),
+                cancelReason:
+                  subscription.cancellation_details?.reason || "unknown",
+              });
+
+              user.activeSubscriptions = user.activeSubscriptions.filter(
+                (sub) => sub.subscriptionId !== subscription.id
+              );
+
+              await user.save();
+            }
+          }
+
+          console.log("Subscription cancelled:", subscription.id);
+        }
+        break;
+      }
+
+      default:
+        console.log("Unhandled event type:", event.type);
     }
 
-    response.status(200).send("Event received");
+    response.status(200).send("Event processed successfully");
   }
 );
 

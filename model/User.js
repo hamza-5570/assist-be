@@ -33,6 +33,27 @@ const UserSchema = new Schema(
     postalCode: { type: String, default: null },
     isTemporary: { type: Boolean, default: false },
     profileImage: { type: String, default: null },
+    stripeCustomerId: { type: String, default: null },
+    activeSubscriptions: [
+      {
+        subscriptionId: String,
+        planName: String,
+        priceId: String,
+        status: String,
+        currentPeriodEnd: Date,
+        cancelAtPeriodEnd: { type: Boolean, default: false },
+      },
+    ],
+    subscriptionHistory: [
+      {
+        subscriptionId: String,
+        planName: String,
+        status: String,
+        startDate: Date,
+        endDate: Date,
+        cancelReason: String,
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -8,11 +8,24 @@ import {
   getSingleOrderCtrl,
   deleteOrderCtrl,
   getOrdersByCustomerCtrl,
+  createDynamicPlanCtrl,
+  getAvailablePlansCtrl,
+  getActiveSubscriptionsCtrl,
 } from "../controllers/orderCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import upload from "../config/fileUpload.js";
 
 const ordersRouter = express.Router();
+
+ordersRouter.get(
+  "/get-active-subscriptions",
+  verifyToken,
+  getActiveSubscriptionsCtrl
+);
+
+ordersRouter.get("/get-available-plans", verifyToken, getAvailablePlansCtrl);
+
+ordersRouter.post("/create-plan", verifyToken, createDynamicPlanCtrl);
 
 ordersRouter.post(
   "/create-order",
