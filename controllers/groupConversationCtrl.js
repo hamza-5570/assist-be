@@ -97,7 +97,6 @@ export const sendGroupMessageCtrl = asyncHandler(async (req, res) => {
     deliveredAt: new Date(),
   });
 
-  // Update unread message count
   group.unread_messages = group.group_members
     .filter((user) => user.toString() !== req.user.id.toString())
     .map((user) => ({
