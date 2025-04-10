@@ -98,6 +98,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
         ? "Conversation fetched successfully"
         : "Joined conversation successfully",
       data: existingConversation,
+      notifications: notifications,
     });
   }
 
@@ -109,13 +110,16 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     const rolesToNotify = ["admin", "super_admin", "moderator"];
     const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
+    const notifications = [];
+
     for (const user of usersToNotify) {
-      await Notification.create({
+      const notification = await Notification.create({
         notifiedTo: user._id,
         notifiedBy: req.user.id,
         notificationType: "customer_request",
         content: `Guest ${recipientName} wants to chat with you.`,
       });
+      notifications.push(notification);
     }
   }
 
@@ -127,6 +131,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     status: "success",
     message: "Conversation created successfully",
     data: populatedConversation,
+    notifications: notifications,
   });
 });
 
