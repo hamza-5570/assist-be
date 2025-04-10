@@ -32,7 +32,12 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
   const message = await Message.create({
     senderId: req.user.id,
     receiverId: Array.isArray(receiverId)
-      ? receiverId.map((id) => new mongoose.Types.ObjectId(id))
+      ? receiverId.map((id) => {
+          if (mongoose.Types.ObjectId.isValid(id)) {
+            return new mongoose.Types.ObjectId(id);
+          }
+          throw new Error("Invalid ObjectId format");
+        })
       : receiverId
       ? [new mongoose.Types.ObjectId(receiverId)]
       : [],
@@ -63,7 +68,11 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
   await Notification.create({
     messageId: message._id,
-    notifiedTo: receiverId ? [receiverId] : [],
+    notifiedTo: Array.isArray(receiverId)
+      ? receiverId
+      : receiverId
+      ? [receiverId]
+      : [],
     notifiedBy: req.user,
     notificationType: "message",
     content: `New message from ${req.user.name} - ${req.user.email}`,
