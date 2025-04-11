@@ -278,35 +278,47 @@ const io = new Server(server, {
   },
 });
 
-const onlineUsers = new Map();
+let onlineUsers = [];
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   // Handle user going online
   socket.on("user-online", async (userId) => {
-    onlineUsers.set(userId, socket.id);
+    console.log("123", userId);
+    // Remove if user already exists
+    onlineUsers = onlineUsers.filter((user) => user.userId !== userId);
+    // Add new user
+    onlineUsers.push({ userId, socketId: socket.id });
+
+    console.log("onlineUsers", onlineUsers);
+
     await User.findByIdAndUpdate(userId, {
       socketId: socket.id,
       isOnline: true,
     });
-    io.emit("online-users", Array.from(onlineUsers.keys()));
+    io.emit(
+      "online-users",
+      onlineUsers.map((user) => user.userId)
+    );
   });
 
   // Handle user disconnecting
   socket.on("disconnect", async () => {
-    let disconnectedUserId;
-    onlineUsers.forEach((value, key) => {
-      if (value === socket.id) disconnectedUserId = key;
-    });
-    if (disconnectedUserId) {
-      onlineUsers.delete(disconnectedUserId);
-      await User.findByIdAndUpdate(disconnectedUserId, {
+    const disconnectedUser = onlineUsers.find(
+      (user) => user.socketId === socket.id
+    );
+    if (disconnectedUser) {
+      onlineUsers = onlineUsers.filter((user) => user.socketId !== socket.id);
+      await User.findByIdAndUpdate(disconnectedUser.userId, {
         socketId: null,
         isOnline: false,
       });
     }
-    io.emit("online-users", Array.from(onlineUsers.keys()));
+    io.emit(
+      "online-users",
+      onlineUsers.map((user) => user.userId)
+    );
   });
 
   // Send message event (integrating with sendMessageCtrl)
@@ -352,97 +364,26 @@ io.on("connection", (socket) => {
           });
         }
         // Emit message to the receiver
-        io.to(onlineUsers.get(receiverId)).emit("receive-message", newMessage);
+        const receiver = onlineUsers.find((user) => user.userId === receiverId);
+        if (receiver) {
+          io.to(receiver.socketId).emit("receive-message", newMessage);
+        }
       } catch (err) {
         console.error("Error in send-message:", err);
       }
     }
   );
 
-  // Typing indicator (integrating with typingIndicatorCtrl)
-  socket.on("typing", async ({ conversationId, groupId, userId, isTyping }) => {
-    try {
-      // Call the typingIndicatorCtrl to update typing status
-      await typingIndicatorCtrl(
-        { body: { conversationId, groupId, isTyping } },
-        { status: () => ({ json: () => {} }) }
-      );
-      if (conversationId) {
-        io.to(conversationId).emit("user-typing", { userId, isTyping });
-      } else if (groupId) {
-        io.to(groupId).emit("user-typing", { userId, isTyping });
+  // Send notifications
+  socket.on("send-notification", async ({ recipients, notification }) => {
+    recipients?.forEach((recipient) => {
+      const receiver = onlineUsers?.find((user) => user?.userId === recipient);
+      if (receiver) {
+        socket.to(receiver.socketId).emit("receive-notification", {
+          notification,
+        });
       }
-    } catch (err) {
-      console.error("Error in typing event:", err);
-    }
-  });
-
-  // Mark message as read (integrating with Message controller)
-  socket.on("mark-as-read", async ({ messageId, userId }) => {
-    try {
-      const updatedMessage = await Message.findByIdAndUpdate(messageId, {
-        isRead: true,
-        readAt: new Date(),
-        $addToSet: { readBy: userId },
-      });
-      io.emit("message-read", { messageId, userId });
-    } catch (err) {
-      console.error("Error in mark-as-read:", err);
-    }
-  });
-
-  // Call signaling (using notifyNewCallCtrl for notifications)
-  socket.on("start-call", async ({ callerId, receiverId, callType }) => {
-    try {
-      const call = await Call.create({
-        callerId,
-        receiverId,
-        callType,
-        status: "active",
-        participants: [callerId, receiverId],
-        startTime: new Date(),
-      });
-      io.to(onlineUsers.get(receiverId)).emit("incoming-call", {
-        callerId,
-        callType,
-        callId: call._id,
-      });
-
-      // Send notification about the call
-      await notifyNewCallCtrl(
-        { body: { callId: call._id } },
-        { status: () => ({ json: () => {} }) }
-      );
-    } catch (err) {
-      console.error("Error in start-call:", err);
-    }
-  });
-
-  // End call event (using call signaling)
-  socket.on("end-call", async ({ callId, endReason }) => {
-    try {
-      const call = await Call.findByIdAndUpdate(callId, {
-        status: "ended",
-        endReason,
-        endTime: new Date(),
-      });
-      io.emit("call-ended", { callId });
-    } catch (err) {
-      console.error("Error in end-call:", err);
-    }
-  });
-
-  // Send notifications (integrating with createNotificationCtrl)
-  socket.on("send-notification", async ({ userId, content, type }) => {
-    try {
-      const notification = await createNotificationCtrl(
-        { body: { notifiedTo: [userId], notificationType: type, content } },
-        { status: () => ({ json: () => {} }) }
-      );
-      io.to(onlineUsers.get(userId)).emit("new-notification", notification);
-    } catch (err) {
-      console.error("Error in send-notification:", err);
-    }
+    });
   });
 });
 
