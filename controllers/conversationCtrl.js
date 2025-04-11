@@ -6,6 +6,7 @@ import Notification from "../model/Notification.js";
 
 export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   const { recipientId } = req.body;
+  let notifications = [];
 
   if (!recipientId) {
     return res.status(400).json({
@@ -67,7 +68,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
       const rolesToNotify = ["admin", "super_admin", "moderator"];
       const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
-      const notifications = await Notification.find({
+      notifications = await Notification.find({
         notifiedTo: { $in: usersToNotify.map((user) => user._id) },
         notificationType: "customer_request",
         content: `Guest ${recipientName} wants to chat with you.`,
@@ -98,7 +99,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
         ? "Conversation fetched successfully"
         : "Joined conversation successfully",
       data: existingConversation,
-      notifications: notifications,
+      notifications,
     });
   }
 
@@ -109,8 +110,6 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
   if (!isAdmin) {
     const rolesToNotify = ["admin", "super_admin", "moderator"];
     const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
-
-    const notifications = [];
 
     for (const user of usersToNotify) {
       const notification = await Notification.create({
@@ -131,7 +130,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
     status: "success",
     message: "Conversation created successfully",
     data: populatedConversation,
-    notifications: notifications,
+    notifications,
   });
 });
 
