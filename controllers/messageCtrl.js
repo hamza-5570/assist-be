@@ -74,6 +74,7 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
       ? [receiverId]
       : [],
     notifiedBy: req.user,
+    conversationId: conversationId || null,
     notificationType: "message",
     content: `New message from ${req.user.name} - ${req.user.email}`,
   });

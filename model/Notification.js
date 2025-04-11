@@ -23,6 +23,10 @@ const NotificationSchema = new Schema(
       ref: "User",
       required: true,
     },
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+    },
     notificationType: {
       type: String,
       enum: [

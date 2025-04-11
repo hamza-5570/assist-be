@@ -115,6 +115,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
       const notification = await Notification.create({
         notifiedTo: user._id,
         notifiedBy: req.user.id,
+        conversationId: conversation._id,
         notificationType: "customer_request",
         content: `Guest ${recipientName} wants to chat with you.`,
       });

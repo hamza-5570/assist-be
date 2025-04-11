@@ -5,12 +5,19 @@ import Call from "../model/Call.js";
 import Order from "../model/Order.js";
 
 export const createNotificationCtrl = asyncHandler(async (req, res) => {
-  const { notifiedTo, notificationType, content, messageId, orderId } =
-    req.body;
+  const {
+    notifiedTo,
+    notificationType,
+    content,
+    messageId,
+    orderId,
+    conversationId,
+  } = req.body;
 
   const newNotification = await Notification.create({
     notifiedBy: req.user.id,
     notifiedTo,
+    conversationId,
     notificationType,
     content,
     messageId: messageId || null,
@@ -27,6 +34,7 @@ export const createNotificationCtrl = asyncHandler(async (req, res) => {
 export const getUserNotificationsCtrl = asyncHandler(async (req, res) => {
   const notifications = await Notification.find({ notifiedTo: req.user.id })
     .populate("notifiedBy", "name email")
+    .populate("conversationId")
     .sort({ createdAt: -1 });
 
   res.json({
