@@ -7,8 +7,8 @@ import sendMail from "../utils/Emails.js";
 import generateOTP from "../utils/GenerateOtp.js";
 import PasswordResetToken from "../model/PasswordResetToken.js";
 import { randomBytes } from "crypto";
-import fs from "fs";
-import csv from "csv-parser";
+// import fs from "fs";
+// import csv from "csv-parser";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_KEY);
@@ -638,67 +638,67 @@ export const inviteUser = asyncHandler(async (req, res) => {
   });
 });
 
-const generateRandomPassword = () => {
-  return randomBytes(8).toString("hex");
-};
+// const generateRandomPassword = () => {
+//   return randomBytes(8).toString("hex");
+// };
 
-export const importUsers = asyncHandler(async (req, res) => {
-  const file = req.file;
+// export const importUsers = asyncHandler(async (req, res) => {
+//   const file = req.file;
 
-  if (!file) {
-    return res.status(400).send({ message: "No file uploaded." });
-  }
+//   if (!file) {
+//     return res.status(400).send({ message: "No file uploaded." });
+//   }
 
-  const results = [];
+//   const results = [];
 
-  fs.createReadStream(file.path)
-    .pipe(csvParser())
-    .on("data", (row) => {
-      results.push(row);
-    })
-    .on("end", async () => {
-      const users = [];
+//   fs.createReadStream(file.path)
+//     .pipe(csvParser())
+//     .on("data", (row) => {
+//       results.push(row);
+//     })
+//     .on("end", async () => {
+//       const users = [];
 
-      for (const row of results) {
-        const userData = {};
+//       for (const row of results) {
+//         const userData = {};
 
-        if (row.name) userData.name = row.name;
-        if (row.email) userData.email = row.email;
+//         if (row.name) userData.name = row.name;
+//         if (row.email) userData.email = row.email;
 
-        if (userData.name && userData.email) {
-          const randomPassword = generateRandomPassword();
+//         if (userData.name && userData.email) {
+//           const randomPassword = generateRandomPassword();
 
-          const salt = await bcrypt.genSalt(10);
-          const hashedPassword = await bcrypt.hash(randomPassword, salt);
+//           const salt = await bcrypt.genSalt(10);
+//           const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
-          userData.password = hashedPassword;
+//           userData.password = hashedPassword;
 
-          try {
-            const newUser = new User(userData);
-            await newUser.save();
+//           try {
+//             const newUser = new User(userData);
+//             await newUser.save();
 
-            const emailSubject = "Welcome to Our Service";
-            const emailBody = `
-              <h1>Welcome, ${newUser.name}!</h1>
-              <p>Your account has been successfully created.</p>
-              <p>Your temporary password is: <strong>${randomPassword}</strong></p>
-            `;
-            await sendMail(newUser.email, emailSubject, emailBody);
+//             const emailSubject = "Welcome to Our Service";
+//             const emailBody = `
+//               <h1>Welcome, ${newUser.name}!</h1>
+//               <p>Your account has been successfully created.</p>
+//               <p>Your temporary password is: <strong>${randomPassword}</strong></p>
+//             `;
+//             await sendMail(newUser.email, emailSubject, emailBody);
 
-            users.push(newUser);
-          } catch (error) {
-            console.error(`Error creating user ${row.email}: ${error.message}`);
-          }
-        }
-      }
+//             users.push(newUser);
+//           } catch (error) {
+//             console.error(`Error creating user ${row.email}: ${error.message}`);
+//           }
+//         }
+//       }
 
-      res.status(200).send({
-        message: `${users.length} users have been successfully imported.`,
-        users,
-      });
-    })
-    .on("error", (err) => {
-      console.error("Error reading CSV file:", err);
-      res.status(500).send({ message: "Error processing the file" });
-    });
-});
+//       res.status(200).send({
+//         message: `${users.length} users have been successfully imported.`,
+//         users,
+//       });
+//     })
+//     .on("error", (err) => {
+//       console.error("Error reading CSV file:", err);
+//       res.status(500).send({ message: "Error processing the file" });
+//     });
+// });
