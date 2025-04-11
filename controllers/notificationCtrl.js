@@ -33,7 +33,7 @@ export const createNotificationCtrl = asyncHandler(async (req, res) => {
 
 export const getUserNotificationsCtrl = asyncHandler(async (req, res) => {
   const notifications = await Notification.find({ notifiedTo: req.user.id })
-    .populate("notifiedBy", "name email")
+    .populate("notifiedBy")
     .populate("conversationId")
     .sort({ createdAt: -1 });
 

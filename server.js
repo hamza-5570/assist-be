@@ -281,8 +281,6 @@ const io = new Server(server, {
 let onlineUsers = [];
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
   // Handle user going online
   socket.on("user-online", async (userId) => {
     console.log("123", userId);
@@ -383,6 +381,7 @@ io.on("connection", (socket) => {
           notification,
         });
       }
+      console.log(notification);
     });
   });
 });

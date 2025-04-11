@@ -5,134 +5,149 @@ import User from "../model/User.js";
 import Notification from "../model/Notification.js";
 
 export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
-  const { recipientId } = req.body;
-  let notifications = [];
+  try {
+    const { recipientId } = req.body;
+    let notifications = [];
+    let oldReceiverId;
 
-  if (!recipientId) {
-    return res.status(400).json({
-      status: "error",
-      message: "Recipient ID is required",
-    });
-  }
+    if (!recipientId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Recipient ID is required",
+      });
+    }
 
-  const isAdmin = ["admin", "super_admin", "moderator"].includes(req.user.role);
-  const userId = isAdmin ? req.user.id : null;
-
-  const recipient = await User.findById(recipientId);
-  if (!recipient) {
-    return res.status(404).json({
-      status: "error",
-      message: "Recipient not found",
-    });
-  }
-
-  const recipientName = recipient.name;
-
-  let existingConversation = await Conversation.findOne({
-    recipients: recipientId,
-  }).populate("recipients", "name email role");
-
-  if (existingConversation) {
-    const recipientStrings = existingConversation.recipients.map((r) =>
-      r ? (typeof r === "object" ? r._id.toString() : r.toString()) : null
+    const isAdmin = ["admin", "super_admin", "moderator"].includes(
+      req.user.role
     );
+    const userId = isAdmin ? req.user.id : null;
 
-    const userIdStr = userId ? userId.toString() : null;
-    const userAlreadyInConversation = recipientStrings.includes(userIdStr);
+    const recipient = await User.findById(recipientId);
+    if (!recipient) {
+      return res.status(404).json({
+        status: "error",
+        message: "Recipient not found",
+      });
+    }
 
-    if (isAdmin && !userAlreadyInConversation) {
-      const nullIndex = recipientStrings.indexOf(null);
+    const recipientName = recipient.name;
 
-      if (nullIndex !== -1) {
-        await Conversation.updateOne(
-          { _id: existingConversation._id },
-          { $set: { [`recipients.${nullIndex}`]: userId } }
-        );
-      } else {
-        await Conversation.updateOne(
-          { _id: existingConversation._id },
-          { $push: { recipients: userId } }
-        );
-      }
+    let existingConversation = await Conversation.findOne({
+      recipients: recipientId,
+    }).populate("recipients", "name email role");
 
-      await Message.updateMany(
-        {
-          conversationId: existingConversation._id,
-          receiverId: oldReceiverId,
-        },
-        {
-          $set: { receiverId: userId },
-        }
+    if (existingConversation) {
+      const recipientStrings = existingConversation.recipients.map((r) =>
+        r ? (typeof r === "object" ? r._id.toString() : r.toString()) : null
       );
 
+      const userIdStr = userId ? userId.toString() : null;
+      const userAlreadyInConversation = recipientStrings.includes(userIdStr);
+
+      if (isAdmin && !userAlreadyInConversation) {
+        const nullIndex = recipientStrings.indexOf(null);
+
+        if (nullIndex !== -1) {
+          await Conversation.updateOne(
+            { _id: existingConversation._id },
+            { $set: { [`recipients.${nullIndex}`]: userId } }
+          );
+        } else {
+          await Conversation.updateOne(
+            { _id: existingConversation._id },
+            { $push: { recipients: userId } }
+          );
+        }
+
+        await Message.updateMany(
+          {
+            conversationId: existingConversation._id,
+            receiverId: oldReceiverId,
+          },
+          {
+            $set: { receiverId: userId },
+          }
+        );
+
+        const rolesToNotify = ["admin", "super_admin", "moderator"];
+        const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+
+        notifications = await Notification.find({
+          notifiedTo: { $in: usersToNotify.map((user) => user._id) },
+          notificationType: "customer_request",
+          content: `Guest ${recipientName} wants to chat with you.`,
+        }).populate("notifiedBy", "name email"); // <-- This populates the notifiedBy field
+
+        for (const notification of notifications) {
+          if (notification.notifiedTo.toString() === userId.toString()) {
+            await Notification.updateOne(
+              { _id: notification._id },
+              { $set: { isAccepted: true } }
+            );
+          } else {
+            await Notification.updateOne(
+              { _id: notification._id },
+              { $set: { isAccepted: false } }
+            );
+          }
+        }
+
+        existingConversation = await Conversation.findOne({
+          _id: existingConversation._id,
+        }).populate("recipients", "name email isOnline");
+      }
+
+      return res.json({
+        status: "success",
+        message: userAlreadyInConversation
+          ? "Conversation fetched successfully"
+          : "Joined conversation successfully",
+        data: existingConversation,
+        notifications,
+      });
+    }
+
+    const conversation = await Conversation.create({
+      recipients: [userId, recipientId],
+    });
+
+    if (!isAdmin) {
       const rolesToNotify = ["admin", "super_admin", "moderator"];
       const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
 
-      notifications = await Notification.find({
-        notifiedTo: { $in: usersToNotify.map((user) => user._id) },
-        notificationType: "customer_request",
-        content: `Guest ${recipientName} wants to chat with you.`,
-      });
-
-      for (const notification of notifications) {
-        if (notification.notifiedTo.toString() === userId.toString()) {
-          await Notification.updateOne(
-            { _id: notification._id },
-            { $set: { isAccepted: true } }
-          );
-        } else {
-          await Notification.updateOne(
-            { _id: notification._id },
-            { $set: { isAccepted: false } }
-          );
-        }
+      for (const user of usersToNotify) {
+        const notification = await Notification.create({
+          notifiedTo: user._id,
+          notifiedBy: req.user.id,
+          conversationId: conversation._id,
+          notificationType: "customer_request",
+          content: `Guest ${recipientName} wants to chat with you.`,
+        });
+        notifications.push(notification._id);
       }
 
-      existingConversation = await Conversation.findOne({
-        _id: existingConversation._id,
-      }).populate("recipients", "name email");
+      notifications = await Notification.find({
+        _id: { $in: notifications },
+      }).populate("notifiedBy", "name email");
     }
+    const populatedConversation = await Conversation.findById(
+      conversation._id
+    ).populate("recipients", "name email isOnline");
 
-    return res.json({
+    res.status(201).json({
       status: "success",
-      message: userAlreadyInConversation
-        ? "Conversation fetched successfully"
-        : "Joined conversation successfully",
-      data: existingConversation,
+      message: "Conversation created successfully",
+      data: populatedConversation,
       notifications,
     });
+  } catch (error) {
+    console.error("Error in createOrFetchConversationCtrl:", error);
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred while processing the request.",
+      error: error.message,
+    });
   }
-
-  const conversation = await Conversation.create({
-    recipients: [userId, recipientId],
-  });
-
-  if (!isAdmin) {
-    const rolesToNotify = ["admin", "super_admin", "moderator"];
-    const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
-
-    for (const user of usersToNotify) {
-      const notification = await Notification.create({
-        notifiedTo: user._id,
-        notifiedBy: req.user.id,
-        conversationId: conversation._id,
-        notificationType: "customer_request",
-        content: `Guest ${recipientName} wants to chat with you.`,
-      });
-      notifications.push(notification);
-    }
-  }
-
-  const populatedConversation = await Conversation.findById(
-    conversation._id
-  ).populate("recipients", "name email");
-
-  res.status(201).json({
-    status: "success",
-    message: "Conversation created successfully",
-    data: populatedConversation,
-    notifications,
-  });
 });
 
 export const getUserConversationsCtrl = asyncHandler(async (req, res) => {
