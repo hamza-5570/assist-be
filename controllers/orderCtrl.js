@@ -24,12 +24,14 @@ export const createDynamicPlanCtrl = asyncHandler(async (req, res) => {
     throw new Error("Name, amount, and interval are required.");
   }
 
+  const amountInCents = Math.round(amount * 100);
+
   const product = await stripe.products.create({
     name,
   });
 
   const price = await stripe.prices.create({
-    unit_amount: amount,
+    unit_amount: amountInCents,
     currency,
     recurring: {
       interval,
@@ -46,7 +48,7 @@ export const createDynamicPlanCtrl = asyncHandler(async (req, res) => {
       stripePriceId: price.id,
       stripeProductId: product.id,
       productName: name,
-      amount: (amount / 100).toFixed(2),
+      amount: (amountInCents / 100).toFixed(2),
       billingInterval: interval,
       intervalCount,
       subscriptionStatus: "pending",
@@ -205,6 +207,12 @@ export const checkoutCtrl = asyncHandler(async (req, res) => {
     );
   }
 
+  if (order.paymentStatus === "paid" || order.paymentStatus === "cancelled") {
+    throw new Error(
+      "Order cannot be accepted because its payment status is 'paid' or 'cancelled'"
+    );
+  }
+
   let stripeCustomerId = order.customerReference.stripeCustomerId;
 
   if (!stripeCustomerId) {
@@ -269,7 +277,7 @@ export const checkoutCtrl = asyncHandler(async (req, res) => {
 });
 
 export const getAllOrdersCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role)) {
+  if (!["admin", "super_admin", "moderator"].includes(req.user.role)) {
     throw new Error("Unauthorized access");
   }
 
@@ -383,7 +391,7 @@ export const getOrdersByCustomerCtrl = asyncHandler(async (req, res) => {
 });
 
 export const getActiveSubscriptionsCtrl = asyncHandler(async (req, res) => {
-  if (!["admin", "super_admin"].includes(req.user.role)) {
+  if (!["admin", "super_admin", "moderator"].includes(req.user.role)) {
     throw new Error("Unauthorized access");
   }
 

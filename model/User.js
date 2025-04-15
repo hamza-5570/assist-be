@@ -21,7 +21,6 @@ const UserSchema = new Schema(
     lastSeen: { type: Date, default: null },
     inCall: { type: Boolean, default: false },
     currentCallId: { type: mongoose.Schema.Types.ObjectId, ref: "Call" },
-    orders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
     isVerified: { type: Boolean, default: false },
     isOnline: { type: Boolean, default: false },
     isBanned: { type: Boolean, default: false },

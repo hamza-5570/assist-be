@@ -28,7 +28,7 @@ import messageRouter from "./routes/messageRouter.js";
 import notificationRouter from "./routes/notificationRouter.js";
 import ordersRouter from "./routes/ordersRouter.js";
 import userRoutes from "./routes/usersRoute.js";
-
+import { sendMessageCtrl } from "./controllers/messageCtrl.js";
 //To Allow using env files
 dotenv.config();
 
@@ -53,11 +53,8 @@ app.post(
 
     try {
       event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
-      console.log("Received event:", event.type);
     } catch (err) {
-      console.log("Error verifying webhook:", err.message);
-      response.status(400).send(`Webhook Error: ${err.message}`);
-      return;
+      return response.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     switch (event.type) {
@@ -68,7 +65,6 @@ app.post(
 
         const order = await Order.findOne({ orderId });
         if (!order) {
-          console.log("Order not found with orderId:", orderId);
           break;
         }
 
@@ -78,6 +74,21 @@ app.post(
         if (session.mode === "subscription" && order.isSubscription) {
           order.subscriptionDetails.subscriptionStatus = "active";
           order.subscriptionDetails.stripeSubscriptionId = session.subscription;
+
+          if (paymentStatus === "paid") {
+            order.status = "Completed";
+
+            const messageUpdate = await Message.updateMany(
+              { orderId: order.orderId },
+              { $set: { orderStatus: "Completed" } }
+            );
+          } else if (paymentStatus === "cancelled") {
+            order.status = "Cancelled";
+          } else if (paymentStatus === "failed") {
+            order.status = "Cancelled";
+          } else {
+            order.status = "Continuing";
+          }
 
           if (customerId) {
             await User.findByIdAndUpdate(customerId, {
@@ -94,11 +105,23 @@ app.post(
             });
           }
         } else {
-          order.status = paymentStatus === "paid" ? "Completed" : "Continuing";
+          if (paymentStatus === "paid") {
+            order.status = "Completed";
+
+            const messageUpdate = await Message.updateMany(
+              { orderId: order.orderId },
+              { $set: { orderStatus: "Completed" } }
+            );
+          } else if (paymentStatus === "cancelled") {
+            order.status = "Cancelled";
+          } else if (paymentStatus === "failed") {
+            order.status = "Cancelled";
+          } else {
+            order.status = "Continuing";
+          }
         }
 
         await order.save();
-        console.log("Order updated:", order);
         break;
       }
 
@@ -141,8 +164,6 @@ app.post(
                 },
               }
             );
-
-            console.log("Subscription billing updated:", order.orderId);
           }
         }
         break;
@@ -171,13 +192,6 @@ app.post(
                 subscription.cancel_at_period_end,
             },
           }
-        );
-
-        console.log(
-          "Subscription updated:",
-          subscription.id,
-          orderUpdate.modifiedCount > 0,
-          userUpdate.modifiedCount > 0
         );
         break;
       }
@@ -221,16 +235,12 @@ app.post(
               await user.save();
             }
           }
-
-          console.log("Subscription cancelled:", subscription.id);
         }
         break;
       }
 
       default:
-        console.log("Unhandled event type:", event.type);
     }
-
     response.status(200).send("Event processed successfully");
   }
 );
@@ -319,6 +329,18 @@ io.on("connection", (socket) => {
     );
   });
 
+  // Register a user and forward data to another frontend page
+  socket.on("register-user-for-forwarding", ({ user, conId }) => {
+    if (!user && !conId) return;
+
+    // You can store more details if needed
+    const userInfo = { user, conId };
+    console.log("🚀 Forwarding user data to listeners:", userInfo);
+
+    // Emit to all connected clients (or use rooms for targeting)
+    io.emit("new-user-forwarded", userInfo);
+  });
+
   // Send message event (integrating with sendMessageCtrl)
   socket.on(
     "send-message",
@@ -329,45 +351,127 @@ io.on("connection", (socket) => {
       attachments,
       conversationId,
       groupId,
+      orderReference,
+      orderId,
+      orderProductName,
+      orderTotalPrice,
+      orderProductImage,
+      orderStatus,
     }) => {
       try {
-        let newMessage;
-        // Handle conversation message
-        if (conversationId) {
-          const messageData = {
-            senderId,
+        console.log("\n⚡️ Received send-message event");
+        console.log("Sender ID:", senderId);
+        console.log("Receiver ID(s):", receiverId);
+        console.log("Text:", text);
+        console.log("Conversation ID:", conversationId);
+        console.log("Group ID:", groupId);
+        console.log("Order Info:", {
+          orderReference,
+          orderId,
+          orderProductName,
+          orderTotalPrice,
+          orderProductImage,
+          orderStatus,
+        });
+        if (attachments) {
+          console.log("Attachments received:", attachments);
+        }
+ 
+        let newMessage = null;
+ 
+        const req = {
+          body: {
             receiverId,
             text,
-            attachments,
             conversationId,
-          };
-          newMessage = await messageController(
-            { body: messageData },
-            { status: () => ({ json: (msg) => msg }) }
+            groupId,
+            orderReference,
+            orderId,
+            orderProductName,
+            orderTotalPrice,
+            orderProductImage,
+            orderStatus,
+          },
+          files: attachments
+            ? attachments.map((path) => ({ path }))
+            : undefined,
+          user: { id: senderId },
+        };
+ 
+        const sender = await User.findById(senderId);
+        if (sender) {
+          req.user = sender;
+        }
+ 
+        // ✅ Properly capture the response data here
+        const res = {
+          status: () => ({
+            json: (data) => {
+              newMessage = data;
+            },
+          }),
+        };
+ 
+        await sendMessageCtrl(req, res);
+ 
+        if (!newMessage || !newMessage.data) {
+          console.error("❌ Message controller did not return expected data.");
+          return;
+        }
+ 
+        console.log("✅ Message created:", newMessage.data);
+        console.log("receiverId", receiverId);
+        // Emit to single or multiple receivers
+        if (Array.isArray(receiverId)) {
+          receiverId.forEach((rId) => {
+            const receiver = onlineUsers.find((user) => user.userId === rId);
+            if (receiver) {
+              console.log(
+                `📤 Emitting message to receiver [${rId}] via socketId [${receiver.socketId}]`
+              );
+              io.to(receiver.socketId).emit("receive-message", newMessage.data);
+            } else {
+              console.log(`❌ Receiver [${rId}] not online`);
+            }
+          });
+        } else if (receiverId) {
+          const receiver = onlineUsers.find(
+            (user) => user.userId === receiverId
           );
+          if (receiver) {
+            console.log(
+              `📤 Emitting message to receiver [${receiverId}] via socketId [${receiver.socketId}]`
+            );
+            io.to(receiver.socketId).emit("receive-message", newMessage.data);
+          } else {
+            console.log(`❌ Receiver [${receiverId}] not online`);
+          }
         }
-        // Handle group message
-        else if (groupId) {
+        // Group messaging
+        if (groupId) {
           const group = await GroupConversation.findById(groupId);
-          newMessage = await Message.create({
-            senderId,
-            receiverId: group.group_members,
-            text,
-            attachments,
-            conversationId: groupId,
-          });
-          await GroupConversation.findByIdAndUpdate(groupId, {
-            lastMessage: newMessage._id,
-            $push: { messages: newMessage._id },
-          });
-        }
-        // Emit message to the receiver
-        const receiver = onlineUsers.find((user) => user.userId === receiverId);
-        if (receiver) {
-          io.to(receiver.socketId).emit("receive-message", newMessage);
+          if (group && group.group_members) {
+            console.log(
+              `📣 Sending to group [${groupId}], members:`,
+              group.group_members
+            );
+            group.group_members.forEach((memberId) => {
+              const member = onlineUsers.find(
+                (user) => user.userId === memberId.toString()
+              );
+              if (member && member.userId !== senderId) {
+                console.log(
+                  `📤 Emitting message to group member [${member.userId}]`
+                );
+                io.to(member.socketId).emit("receive-message", newMessage.data);
+              }
+            });
+          } else {
+            console.log(`❌ Group [${groupId}] not found or has no members`);
+          }
         }
       } catch (err) {
-        console.error("Error in send-message:", err);
+        console.error("❌ Error in send-message:", err);
       }
     }
   );

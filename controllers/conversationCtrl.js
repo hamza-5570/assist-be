@@ -76,7 +76,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
           notifiedTo: { $in: usersToNotify.map((user) => user._id) },
           notificationType: "customer_request",
           content: `Guest ${recipientName} wants to chat with you.`,
-        }).populate("notifiedBy", "name email"); // <-- This populates the notifiedBy field
+        }).populate("notifiedBy", "name email");
 
         for (const notification of notifications) {
           if (notification.notifiedTo.toString() === userId.toString()) {
@@ -151,11 +151,21 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 });
 
 export const getUserConversationsCtrl = asyncHandler(async (req, res) => {
-  const conversations = await Conversation.find({
-    recipients: req.user.id,
-  })
-    .populate("recipients", "name email")
-    .populate("lastMessage");
+  let conversations;
+
+  if (req.user.role === "super_admin") {
+    conversations = await Conversation.find({})
+      .populate("recipients", "name email isOnline profileImage")
+      .populate("lastMessage")
+      .sort({ updatedAt: -1 });
+  } else {
+    conversations = await Conversation.find({
+      recipients: req.user.id,
+    })
+      .populate("recipients", "name email isOnline profileImage")
+      .populate("lastMessage")
+      .sort({ updatedAt: -1 });
+  }
 
   res.json({
     status: "success",
@@ -353,3 +363,208 @@ export const setAdminToNullInConversationByIdCtrl = asyncHandler(
     });
   }
 );
+
+export const addUserToConversationCtrl = asyncHandler(async (req, res) => {
+  const { conversationId } = req.body;
+  const userIdToAdd = req.user.id;
+
+  if (!conversationId || !userIdToAdd) {
+    return res.status(400).json({
+      status: "error",
+      message: "Conversation ID and User ID to add are required",
+    });
+  }
+
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({
+      status: "error",
+      message: "Conversation not found",
+    });
+  }
+
+  const userToAdd = await User.findById(userIdToAdd);
+  if (!userToAdd) {
+    return res.status(404).json({
+      status: "error",
+      message: "User to add not found",
+    });
+  }
+
+  const isAlreadyRecipient = conversation.recipients.some(
+    (recipientId) => recipientId?.toString() === userIdToAdd
+  );
+
+  const rolesToNotify = ["admin", "super_admin", "moderator"];
+  const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+
+  const notifications = await Notification.find({
+    notifiedTo: { $in: usersToNotify.map((u) => u._id) },
+    conversationId: conversation._id,
+    notificationType: "customer_request",
+  });
+
+  for (const notification of notifications) {
+    if (notification.notifiedTo.toString() === userIdToAdd) {
+      await Notification.updateOne(
+        { _id: notification._id },
+        { $set: { isAccepted: true } }
+      );
+    } else {
+      await Notification.updateOne(
+        { _id: notification._id },
+        { $set: { isAccepted: false } }
+      );
+    }
+  }
+
+  if (isAlreadyRecipient || req.user.role === "super_admin") {
+    const fetchedConversation = await Conversation.findById(conversationId)
+      .populate("recipients", "name email isOnline")
+      .populate("lastMessage");
+
+    return res.json({
+      status: "success",
+      message: isAlreadyRecipient
+        ? "User is already in the conversation"
+        : "Super admin viewing the conversation",
+      data: fetchedConversation,
+      notifications,
+    });
+  }
+
+  if (conversation.recipients.length >= 2) {
+    return res.status(403).json({
+      status: "error",
+      message:
+        "Cannot add more than two participants in a one-to-one conversation",
+    });
+  }
+
+  const oldReceiverId = conversation.recipients.find(
+    (id) => id.toString() !== userIdToAdd
+  );
+  conversation.recipients.push(userIdToAdd);
+  await conversation.save();
+
+  await Message.updateMany(
+    {
+      conversationId: conversation._id,
+      receiverId: oldReceiverId,
+    },
+    {
+      $set: { receiverId: userIdToAdd },
+    }
+  );
+
+  const updatedConversation = await Conversation.findById(conversationId)
+    .populate("recipients", "name email isOnline")
+    .populate("lastMessage");
+
+  res.json({
+    status: "success",
+    message: "User added to conversation",
+    data: updatedConversation,
+    notifications,
+  });
+});
+
+export const createChatRoomCtrl = asyncHandler(async (req, res) => {
+  const adminId = req.user.id;
+  const { userId } = req.body;
+
+  const existingConversation = await Conversation.findOne({
+    recipients: { $all: [adminId, userId], $size: 2 },
+  }).populate("recipients", "name email isOnline profileImage");
+
+  if (existingConversation) {
+    return res.status(200).json({
+      status: "success",
+      message: "Chat room already exists",
+      data: existingConversation,
+    });
+  }
+
+  const conversation = await Conversation.create({
+    recipients: [adminId, userId],
+  });
+
+  const populatedConversation = await Conversation.findById(
+    conversation._id
+  ).populate("recipients", "name email isOnline profileImage");
+
+  res.status(201).json({
+    status: "success",
+    message: "Chat room created successfully",
+    data: populatedConversation,
+  });
+});
+
+export const createChatRoomCustomerCtrl = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  const conversation = await Conversation.create({
+    recipients: [userId],
+  });
+
+  const rolesToNotify = ["admin", "super_admin", "moderator"];
+  const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
+  console.log(usersToNotify);
+
+  const recipientName = req.user.name;
+  const notificationIds = [];
+
+  for (const user of usersToNotify) {
+    const notification = await Notification.create({
+      notifiedTo: user._id,
+      notifiedBy: req.user.id,
+      conversationId: conversation._id,
+      notificationType: "customer_request",
+      content: `Guest ${recipientName} wants to chat with you.`,
+    });
+    notificationIds.push(notification._id);
+  }
+
+  const populatedConversation = await Conversation.findById(
+    conversation._id
+  ).populate("recipients", "name email isOnline profileImage");
+
+  const notifications = await Notification.find({
+    _id: { $in: notificationIds },
+  }).populate("notifiedBy", "name email");
+
+  res.status(201).json({
+    status: "success",
+    message: "Chat room created successfully by customer",
+    data: populatedConversation,
+    notifications,
+  });
+});
+
+export const getConversationByIdCtrl = asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+
+  if (!conversationId) {
+    return res.status(400).json({
+      status: "error",
+      message: "Conversation ID is required",
+    });
+  }
+
+  const conversation = await Conversation.findById(conversationId)
+    .populate("recipients", "name email isOnline profileImage")
+    .populate("lastMessage");
+
+  if (!conversation) {
+    return res.status(404).json({
+      status: "error",
+      message: "Conversation not found",
+    });
+  }
+
+  res.json({
+    status: "success",
+    message: "Conversation fetched successfully",
+    data: conversation,
+  });
+});

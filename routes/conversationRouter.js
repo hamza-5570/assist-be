@@ -11,6 +11,10 @@ import {
   deleteConversationCtrl,
   typingIndicatorCtrl,
   setAdminToNullInConversationByIdCtrl,
+  addUserToConversationCtrl,
+  createChatRoomCtrl,
+  createChatRoomCustomerCtrl,
+  getConversationByIdCtrl,
 } from "../controllers/conversationCtrl.js";
 
 const conversationsRouter = express.Router();
@@ -61,6 +65,22 @@ conversationsRouter.put(
   "/set-admin-null",
   verifyToken,
   setAdminToNullInConversationByIdCtrl
+);
+
+conversationsRouter.patch("/add", verifyToken, addUserToConversationCtrl);
+
+conversationsRouter.post("/create", verifyToken, createChatRoomCtrl);
+
+conversationsRouter.post(
+  "/create-customer",
+  verifyToken,
+  createChatRoomCustomerCtrl
+);
+
+conversationsRouter.get(
+  "/:conversationId",
+  verifyToken,
+  getConversationByIdCtrl
 );
 
 export default conversationsRouter;
