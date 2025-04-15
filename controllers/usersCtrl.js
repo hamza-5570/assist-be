@@ -142,7 +142,7 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
 });
 
 export const getUserProfileCtrl = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user).populate("orders");
+  const user = await User.findById(req.user);
 
   res.json({
     status: "success",
