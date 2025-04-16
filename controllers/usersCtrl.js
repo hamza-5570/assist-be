@@ -7,8 +7,8 @@ import sendMail from "../utils/Emails.js";
 import generateOTP from "../utils/GenerateOtp.js";
 import PasswordResetToken from "../model/PasswordResetToken.js";
 import { randomBytes } from "crypto";
-// import fs from "fs";
-// import csv from "csv-parser";
+import fs from "fs";
+import csvParser from "csv-parser";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_KEY);
@@ -275,7 +275,9 @@ export const resetPassword = asyncHandler(async (req, res) => {
 export const getUsersForChatCtrl = asyncHandler(async (req, res) => {
   try {
     const users = await User.find({ _id: { $ne: req.user } })
-      .select("name email isOnline isBanned isSuspended role profileImage")
+      .select(
+        "name email isOnline isBanned isSuspended role profileImage stripeCustomerId"
+      )
       .sort({ _id: -1 });
 
     res.json(users);
@@ -638,67 +640,78 @@ export const inviteUser = asyncHandler(async (req, res) => {
   });
 });
 
-// const generateRandomPassword = () => {
-//   return randomBytes(8).toString("hex");
-// };
+const generateRandomPassword = () => {
+  return randomBytes(8).toString("hex");
+};
 
-// export const importUsers = asyncHandler(async (req, res) => {
-//   const file = req.file;
+export const importUsers = asyncHandler(async (req, res) => {
+  const file = req.file;
 
-//   if (!file) {
-//     return res.status(400).send({ message: "No file uploaded." });
-//   }
+  if (!file) {
+    return res.status(400).send({ message: "No file uploaded." });
+  }
 
-//   const results = [];
+  const users = [];
 
-//   fs.createReadStream(file.path)
-//     .pipe(csvParser())
-//     .on("data", (row) => {
-//       results.push(row);
-//     })
-//     .on("end", async () => {
-//       const users = [];
+  const parseCSV = () =>
+    new Promise((resolve, reject) => {
+      const results = [];
 
-//       for (const row of results) {
-//         const userData = {};
+      fs.createReadStream(file.path)
+        .pipe(csvParser())
+        .on("data", (row) => results.push(row))
+        .on("end", () => resolve(results))
+        .on("error", reject);
+    });
 
-//         if (row.name) userData.name = row.name;
-//         if (row.email) userData.email = row.email;
+  const rows = await parseCSV();
 
-//         if (userData.name && userData.email) {
-//           const randomPassword = generateRandomPassword();
+  for (const row of rows) {
+    const userData = {};
 
-//           const salt = await bcrypt.genSalt(10);
-//           const hashedPassword = await bcrypt.hash(randomPassword, salt);
+    if (row.name) userData.name = row.name;
+    if (row.email) userData.email = row.email;
 
-//           userData.password = hashedPassword;
+    if (userData.name && userData.email) {
+      const existingUser = await User.findOne({ email: userData.email });
+      if (existingUser) {
+        continue;
+      }
 
-//           try {
-//             const newUser = new User(userData);
-//             await newUser.save();
+      const randomPassword = generateRandomPassword();
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
 
-//             const emailSubject = "Welcome to Our Service";
-//             const emailBody = `
-//               <h1>Welcome, ${newUser.name}!</h1>
-//               <p>Your account has been successfully created.</p>
-//               <p>Your temporary password is: <strong>${randomPassword}</strong></p>
-//             `;
-//             await sendMail(newUser.email, emailSubject, emailBody);
+      userData.password = hashedPassword;
 
-//             users.push(newUser);
-//           } catch (error) {
-//             console.error(`Error creating user ${row.email}: ${error.message}`);
-//           }
-//         }
-//       }
+      const stripeCustomer = await stripe.customers.create({
+        email: userData.email,
+        name: userData.name,
+      });
 
-//       res.status(200).send({
-//         message: `${users.length} users have been successfully imported.`,
-//         users,
-//       });
-//     })
-//     .on("error", (err) => {
-//       console.error("Error reading CSV file:", err);
-//       res.status(500).send({ message: "Error processing the file" });
-//     });
-// });
+      userData.stripeCustomerId = stripeCustomer.id;
+
+      try {
+        const newUser = new User(userData);
+        await newUser.save();
+
+        const emailSubject = "Welcome to Assist";
+        const emailBody = `
+          <h1>Welcome, ${newUser.name}!</h1>
+          <p>Your account has been successfully created for email: <strong>${newUser.email}</strong>.</p>
+          <p>Your temporary password is: <strong>${randomPassword}</strong></p>
+        `;
+        await sendMail(newUser.email, emailSubject, emailBody);
+
+        users.push(newUser);
+      } catch (error) {
+        // console.error(`Error creating user ${row.email}: ${error.message}`);
+      }
+    }
+  }
+
+  res.status(200).send({
+    message: `${users.length} users have been successfully imported.`,
+    users,
+  });
+});
