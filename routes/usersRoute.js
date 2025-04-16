@@ -20,7 +20,7 @@ import {
   addNewMember,
   inviteUser,
   deleteMultipleUsersByIdCtrl,
-  // importUsers,
+  importUsers,
 } from "../controllers/usersCtrl.js";
 import { checkRole, verifyToken } from "../middlewares/verifyToken.js";
 import { userValidation } from "../validation/userValidation.js";
@@ -28,7 +28,7 @@ import validateRequestBody from "../middlewares/validationMiddleware.js";
 import upload from "../config/fileUpload.js";
 import passport from "passport";
 import generateToken from "../utils/generateToken.js";
-// import uploadLocal from "../config/localUpload.js";
+import uploadLocal from "../config/localUpload.js";
 
 const userRoutes = express.Router();
 
@@ -68,7 +68,7 @@ userRoutes.post(
   validateRequestBody(userValidation),
   addNewMember
 );
-userRoutes.post("/admin-invite", inviteUser);
+userRoutes.post("/admin-invite", verifyToken, inviteUser);
 userRoutes.get("/user/:id", verifyToken, getUserByIdCtrl);
 userRoutes.delete("/user/:id", verifyToken, deleteUserByIdCtrl);
 userRoutes.post("/users", verifyToken, deleteMultipleUsersByIdCtrl);
@@ -120,11 +120,11 @@ userRoutes.get(
     );
   }
 );
-// userRoutes.post(
-//   "/import-users",
-//   uploadLocal.single("file"),
-//   verifyToken,
-//   importUsers
-// );
+userRoutes.post(
+  "/import-users",
+  uploadLocal.single("file"),
+  verifyToken,
+  importUsers
+);
 
 export default userRoutes;
