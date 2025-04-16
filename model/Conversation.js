@@ -20,6 +20,7 @@ const ConversationSchema = new Schema(
       enum: ["active", "archived", "deleted"],
       default: "active",
     },
+    hasLeft: { type: Boolean, default: false },
     lastReadAt: { type: Date, default: null },
   },
   { timestamps: true }

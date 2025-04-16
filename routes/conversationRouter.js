@@ -15,6 +15,7 @@ import {
   createChatRoomCtrl,
   createChatRoomCustomerCtrl,
   getConversationByIdCtrl,
+  leaveChatRoomCtrl,
 } from "../controllers/conversationCtrl.js";
 
 const conversationsRouter = express.Router();
@@ -82,5 +83,7 @@ conversationsRouter.get(
   verifyToken,
   getConversationByIdCtrl
 );
+
+conversationsRouter.post("/leave-chat", verifyToken, leaveChatRoomCtrl);
 
 export default conversationsRouter;
