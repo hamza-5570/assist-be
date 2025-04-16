@@ -342,6 +342,143 @@ io.on("connection", (socket) => {
   });
 
   // Send message event (integrating with sendMessageCtrl)
+  // socket.on(
+  //   "send-message",
+  //   async ({
+  //     senderId,
+  //     receiverId,
+  //     text,
+  //     attachments,
+  //     conversationId,
+  //     groupId,
+  //     orderReference,
+  //     orderId,
+  //     orderProductName,
+  //     orderTotalPrice,
+  //     orderProductImage,
+  //     orderStatus,
+  //   }) => {
+  //     try {
+  //       // console.log("\n⚡️ Received send-message event");
+  //       // console.log("Sender ID:", senderId);
+  //       // console.log("Receiver ID(s):", receiverId);
+  //       // console.log("Text:", text);
+  //       // console.log("Conversation ID:", conversationId);
+  //       // console.log("Group ID:", groupId);
+  //       // console.log("Order Info:", {
+  //       //   orderReference,
+  //       //   orderId,
+  //       //   orderProductName,
+  //       //   orderTotalPrice,
+  //       //   orderProductImage,
+  //       //   orderStatus,
+  //       // });
+  //       if (attachments) {
+  //         console.log("Attachments received:", attachments);
+  //       }
+
+  //       let newMessage = null;
+
+  //       const req = {
+  //         body: {
+  //           receiverId,
+  //           text,
+  //           conversationId,
+  //           groupId,
+  //           orderReference,
+  //           orderId,
+  //           orderProductName,
+  //           orderTotalPrice,
+  //           orderProductImage,
+  //           orderStatus,
+  //         },
+  //         files: attachments
+  //           ? attachments.map((path) => ({ path }))
+  //           : undefined,
+  //         user: { id: senderId },
+  //       };
+
+  //       // console.log("files:", files);
+
+  //       const sender = await User.findById(senderId);
+  //       if (sender) {
+  //         req.user = sender;
+  //       }
+
+  //       // ✅ Properly capture the response data here
+  //       const res = {
+  //         status: () => ({
+  //           json: (data) => {
+  //             newMessage = data;
+  //           },
+  //         }),
+  //       };
+
+  //       await sendMessageCtrl(req, res);
+
+  //       if (!newMessage || !newMessage.data) {
+  //         console.error("❌ Message controller did not return expected data.");
+  //         return;
+  //       }
+
+  //       console.log("✅ Message created:", newMessage.data);
+  //       console.log("receiverId", receiverId);
+  //       // Emit to single or multiple receivers
+  //       if (Array.isArray(receiverId)) {
+  //         receiverId.forEach((rId) => {
+  //           const receiver = onlineUsers.find((user) => user.userId === rId);
+  //           if (receiver) {
+  //             console.log(
+  //               `📤 Emitting message to receiver [${rId}] via socketId [${receiver.socketId}]`
+  //             );
+  //             io.to(receiver.socketId).emit("receive-message", newMessage.data);
+  //           } else {
+  //             console.log(`❌ Receiver [${rId}] not online`);
+  //           }
+  //         });
+  //       } else if (receiverId) {
+  //         const receiver = onlineUsers.find(
+  //           (user) => user.userId === receiverId
+  //         );
+  //         if (receiver) {
+  //           console.log(
+  //             `📤 Emitting message to receiver [${receiverId}] via socketId [${receiver.socketId}]`
+  //           );
+  //           io.to(receiver.socketId).emit("receive-message", newMessage.data);
+  //         } else {
+  //           console.log(`❌ Receiver [${receiverId}] not online`);
+  //         }
+  //       }
+  //       // Group messaging
+  //       if (groupId) {
+  //         const group = await GroupConversation.findById(groupId);
+  //         if (group && group.group_members) {
+  //           console.log(
+  //             `📣 Sending to group [${groupId}], members:`,
+  //             group.group_members
+  //           );
+  //           group.group_members.forEach((memberId) => {
+  //             const member = onlineUsers.find(
+  //               (user) => user.userId === memberId.toString()
+  //             );
+  //             if (member && member.userId !== senderId) {
+  //               console.log(
+  //                 `📤 Emitting message to group member [${member.userId}]`
+  //               );
+  //               io.to(member.socketId).emit("receive-message", newMessage.data);
+  //             }
+  //           });
+  //         } else {
+  //           console.log(`❌ Group [${groupId}] not found or has no members`);
+  //         }
+  //       }
+  //     } catch (err) {
+  //       console.error("❌ Error in send-message:", err);
+  //     }
+  //   }
+  // );
+
+  //sockets for testing
   socket.on(
     "send-message",
     async ({
@@ -351,6 +488,7 @@ io.on("connection", (socket) => {
       attachments,
       conversationId,
       groupId,
+      messageId, // Add this new parameter
       orderReference,
       orderId,
       orderProductName,
@@ -360,65 +498,71 @@ io.on("connection", (socket) => {
     }) => {
       try {
         console.log("\n⚡️ Received send-message event");
-        console.log("Sender ID:", senderId);
-        console.log("Receiver ID(s):", receiverId);
-        console.log("Text:", text);
-        console.log("Conversation ID:", conversationId);
-        console.log("Group ID:", groupId);
-        console.log("Order Info:", {
-          orderReference,
-          orderId,
-          orderProductName,
-          orderTotalPrice,
-          orderProductImage,
-          orderStatus,
-        });
-        if (attachments) {
-          console.log("Attachments received:", attachments);
-        }
- 
+
         let newMessage = null;
- 
-        const req = {
-          body: {
-            receiverId,
-            text,
-            conversationId,
-            groupId,
-            orderReference,
-            orderId,
-            orderProductName,
-            orderTotalPrice,
-            orderProductImage,
-            orderStatus,
-          },
-          files: attachments
-            ? attachments.map((path) => ({ path }))
-            : undefined,
-          user: { id: senderId },
-        };
- 
-        const sender = await User.findById(senderId);
-        if (sender) {
-          req.user = sender;
-        }
- 
-        // ✅ Properly capture the response data here
-        const res = {
-          status: () => ({
-            json: (data) => {
-              newMessage = data;
+
+        // If messageId is provided, it means the message already exists
+        // This is typically for file messages that were created via the API
+        if (messageId) {
+          // Find the existing message instead of creating a new one
+          const existingMessage = await Message.findById(messageId)
+            // .populate("sender", "username profile_img")
+            // .populate("attachments");
+
+          if (existingMessage) {
+            newMessage = { data: existingMessage };
+            console.log("✅ Found existing message:", existingMessage);
+          } else {
+            console.error(`❌ Message with ID ${messageId} not found`);
+            return;
+          }
+        } else {
+          // Original flow for creating a new message
+          const req = {
+            body: {
+              receiverId,
+              text,
+              conversationId,
+              groupId,
+              orderReference,
+              orderId,
+              orderProductName,
+              orderTotalPrice,
+              orderProductImage,
+              orderStatus,
             },
-          }),
-        };
- 
-        await sendMessageCtrl(req, res);
- 
+            files: attachments
+              ? attachments.map((path) => ({ path }))
+              : undefined,
+            user: { id: senderId },
+          };
+          console.log("senderId:", senderId);
+          if (req.files) {
+            console.log("files:", req.files);
+          }
+
+          const sender = await User.findById(senderId);
+          if (sender) {
+            req.user = sender;
+          }
+
+          // ✅ Properly capture the response data here
+          const res = {
+            status: () => ({
+              json: (data) => {
+                newMessage = data;
+              },
+            }),
+          };
+
+          await sendMessageCtrl(req, res);
+        }
+
         if (!newMessage || !newMessage.data) {
           console.error("❌ Message controller did not return expected data.");
           return;
         }
- 
+
         console.log("✅ Message created:", newMessage.data);
         console.log("receiverId", receiverId);
         // Emit to single or multiple receivers

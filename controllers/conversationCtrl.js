@@ -34,7 +34,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 
     let existingConversation = await Conversation.findOne({
       recipients: recipientId,
-    }).populate("recipients", "name email role");
+    }).populate("recipients");
 
     if (existingConversation) {
       const recipientStrings = existingConversation.recipients.map((r) =>
@@ -76,7 +76,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
           notifiedTo: { $in: usersToNotify.map((user) => user._id) },
           notificationType: "customer_request",
           content: `Guest ${recipientName} wants to chat with you.`,
-        }).populate("notifiedBy", "name email");
+        }).populate("notifiedBy");
 
         for (const notification of notifications) {
           if (notification.notifiedTo.toString() === userId.toString()) {
@@ -94,7 +94,7 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 
         existingConversation = await Conversation.findOne({
           _id: existingConversation._id,
-        }).populate("recipients", "name email isOnline");
+        }).populate("recipients");
       }
 
       return res.json({
@@ -128,11 +128,11 @@ export const createOrFetchConversationCtrl = asyncHandler(async (req, res) => {
 
       notifications = await Notification.find({
         _id: { $in: notifications },
-      }).populate("notifiedBy", "name email");
+      }).populate("notifiedBy");
     }
     const populatedConversation = await Conversation.findById(
       conversation._id
-    ).populate("recipients", "name email isOnline");
+    ).populate("recipients");
 
     res.status(201).json({
       status: "success",
@@ -155,14 +155,14 @@ export const getUserConversationsCtrl = asyncHandler(async (req, res) => {
 
   if (req.user.role === "super_admin") {
     conversations = await Conversation.find({})
-      .populate("recipients", "name email isOnline profileImage")
+      .populate("recipients")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
   } else {
     conversations = await Conversation.find({
       recipients: req.user.id,
     })
-      .populate("recipients", "name email isOnline profileImage")
+      .populate("recipients")
       .populate("lastMessage")
       .sort({ updatedAt: -1 });
   }
@@ -420,7 +420,7 @@ export const addUserToConversationCtrl = asyncHandler(async (req, res) => {
 
   if (isAlreadyRecipient || req.user.role === "super_admin") {
     const fetchedConversation = await Conversation.findById(conversationId)
-      .populate("recipients", "name email isOnline")
+      .populate("recipients")
       .populate("lastMessage");
 
     return res.json({
@@ -458,7 +458,7 @@ export const addUserToConversationCtrl = asyncHandler(async (req, res) => {
   );
 
   const updatedConversation = await Conversation.findById(conversationId)
-    .populate("recipients", "name email isOnline")
+    .populate("recipients")
     .populate("lastMessage");
 
   res.json({
@@ -475,7 +475,7 @@ export const createChatRoomCtrl = asyncHandler(async (req, res) => {
 
   const existingConversation = await Conversation.findOne({
     recipients: { $all: [adminId, userId], $size: 2 },
-  }).populate("recipients", "name email isOnline profileImage");
+  }).populate("recipients");
 
   if (existingConversation) {
     return res.status(200).json({
@@ -491,7 +491,7 @@ export const createChatRoomCtrl = asyncHandler(async (req, res) => {
 
   const populatedConversation = await Conversation.findById(
     conversation._id
-  ).populate("recipients", "name email isOnline profileImage");
+  ).populate("recipients");
 
   res.status(201).json({
     status: "success",
@@ -509,7 +509,6 @@ export const createChatRoomCustomerCtrl = asyncHandler(async (req, res) => {
 
   const rolesToNotify = ["admin", "super_admin", "moderator"];
   const usersToNotify = await User.find({ role: { $in: rolesToNotify } });
-  console.log(usersToNotify);
 
   const recipientName = req.user.name;
   const notificationIds = [];
@@ -527,11 +526,11 @@ export const createChatRoomCustomerCtrl = asyncHandler(async (req, res) => {
 
   const populatedConversation = await Conversation.findById(
     conversation._id
-  ).populate("recipients", "name email isOnline profileImage");
+  ).populate("recipients");
 
   const notifications = await Notification.find({
     _id: { $in: notificationIds },
-  }).populate("notifiedBy", "name email");
+  }).populate("notifiedBy");
 
   res.status(201).json({
     status: "success",
@@ -552,7 +551,7 @@ export const getConversationByIdCtrl = asyncHandler(async (req, res) => {
   }
 
   const conversation = await Conversation.findById(conversationId)
-    .populate("recipients", "name email isOnline profileImage")
+    .populate("recipients")
     .populate("lastMessage");
 
   if (!conversation) {
@@ -566,5 +565,63 @@ export const getConversationByIdCtrl = asyncHandler(async (req, res) => {
     status: "success",
     message: "Conversation fetched successfully",
     data: conversation,
+  });
+});
+
+export const leaveChatRoomCtrl = asyncHandler(async (req, res) => {
+  const { conversationId } = req.body;
+
+  if (!conversationId) {
+    return res.status(400).json({
+      status: "error",
+      message: "Conversation ID is required",
+    });
+  }
+
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) {
+    return res.status(404).json({
+      status: "error",
+      message: "Conversation not found",
+    });
+  }
+
+  const userId = req.user.id;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    return res.status(404).json({
+      status: "error",
+      message: "User not found",
+    });
+  }
+
+  // const leaveMessage = await Message.create({
+  //   senderId: userId,
+  //   receiverId: conversation.recipients.filter(
+  //     (id) => id.toString() !== userId.toString()
+  //   ),
+  //   text: `${user.name} has left the chat.`,
+  //   conversationId,
+  //   deliveredAt: new Date(),
+  // });
+
+  // conversation.messages.push(leaveMessage._id);
+  // conversation.lastMessage = leaveMessage._id;
+  conversation.hasLeft = true;
+  await conversation.save();
+
+  user.isOnline = false;
+  await user.save();
+
+  res.status(201).json({
+    status: "success",
+    message: "User has left the chat",
+    data: {
+      // message: leaveMessage,
+      isOnline: user.isOnline,
+      hasLeft: conversation.hasLeft,
+      conversation: conversation,
+    },
   });
 });
