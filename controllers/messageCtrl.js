@@ -88,14 +88,25 @@ export const sendMessageCtrl = asyncHandler(async (req, res) => {
 
 export const getMessagesCtrl = asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
+
   const messages = await Message.find({ conversationId }).sort({
     createdAt: 1,
   });
+
+  const conversation = await Conversation.findById(conversationId)
+    .populate({
+      path: "messages",
+      options: { sort: { createdAt: 1 } },
+      populate: [{ path: "senderId" }, { path: "receiverId" }],
+    })
+    .populate("recipients")
+    .populate("lastMessage");
 
   res.json({
     status: "success",
     message: "Messages fetched successfully",
     messages,
+    conversation,
   });
 });
 
